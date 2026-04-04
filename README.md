@@ -54,6 +54,21 @@ Target page:
 
 ## 3) Data model (minimal)
 
+## 2.1) Current scaffold
+
+The initial implementation scaffold now lives under:
+
+- `src/ircc_draw_automation/fetcher.py`
+  - Fetches and normalizes the IRCC rounds page.
+- `src/ircc_draw_automation/parser.py`
+  - Extracts the latest draw payload from the fetched HTML.
+- `src/ircc_draw_automation/scheduler.py`
+  - Runs the fetch + parse pipeline and flags whether the draw changed.
+- `src/ircc_draw_automation/main.py`
+  - Minimal CLI entrypoint that prints the scheduler result as JSON.
+- `tests/test_parser.py`
+  - Parser smoke test with a frozen HTML snippet.
+
 ```json
 {
   "draw_key": "2026-03-20_341",
