@@ -1,6 +1,5 @@
 import hashlib
 import re
-from typing import Iterable
 
 from bs4 import BeautifulSoup, Tag
 
@@ -17,28 +16,27 @@ NUMBER_PATTERN = re.compile(r"(\d[\d,]*)")
 
 def parse_latest_draw(html, source_url):
     soup = BeautifulSoup(html, "html.parser")
-    candidate = _find_latest_draw_container(soup)
-    if candidate is None:
+    parsed_row = _parse_latest_table_row(soup)
+    if parsed_row is not None:
+        candidate, parsed_values = parsed_row
+    else:
+        candidate = _find_latest_draw_container(soup)
+        if candidate is None:
+            raise ValueError("Could not locate a draw container in the IRCC page.")
+        parsed_values = _parse_free_text_block(candidate.get_text(" ", strip=True))
+
+    if parsed_values["draw_number"] is None or parsed_values["draw_date"] is None:
         raise ValueError("Could not locate a draw container in the IRCC page.")
 
-    block_text = candidate.get_text(" ", strip=True)
-    draw_number = _extract_draw_number(block_text)
-    draw_date = _extract_draw_date(block_text)
-    invitations = _extract_metric(block_text, ("Invitations issued", "Invitations"))
-    crs_cutoff = _extract_metric(block_text, ("CRS score of lowest-ranked candidate invited", "CRS"))
-    program = _extract_program(block_text)
     content_hash = "sha256:" + hashlib.sha256(str(candidate).encode("utf-8")).hexdigest()
 
-    key_date = draw_date or "unknown-date"
-    key_number = draw_number if draw_number is not None else "unknown-draw"
-
     return DrawRecord(
-        draw_key=f"{key_date}_{key_number}",
-        draw_number=draw_number,
-        draw_date=draw_date,
-        program=program,
-        invitations=invitations,
-        crs_cutoff=crs_cutoff,
+        draw_key="%s_%s" % (parsed_values["draw_date"], parsed_values["draw_number"]),
+        draw_number=parsed_values["draw_number"],
+        draw_date=parsed_values["draw_date"],
+        program=parsed_values["program"],
+        invitations=parsed_values["invitations"],
+        crs_cutoff=parsed_values["crs_cutoff"],
         tie_breaking=None,
         source_url=source_url,
         fetched_at=utc_now_iso(),
@@ -46,14 +44,56 @@ def parse_latest_draw(html, source_url):
     )
 
 
+def _parse_latest_table_row(soup):
+    table_rows = soup.select("table tbody tr") or soup.select(".table tbody tr") or soup.select("main table tr")
+    for row in table_rows:
+        parsed_values = _parse_table_row(row)
+        if parsed_values is not None:
+            return row, parsed_values
+    return None
+
+
+def _parse_table_row(row):
+    cells = row.find_all(["td", "th"])
+    if not cells:
+        return None
+
+    cell_texts = [cell.get_text(" ", strip=True) for cell in cells]
+    combined_text = " ".join(cell_texts)
+    draw_date = _extract_draw_date(combined_text)
+    if draw_date is None:
+        return None
+
+    draw_number = _extract_draw_number(combined_text)
+    if draw_number is None and cell_texts:
+        draw_number = _parse_int(cell_texts[0])
+
+    invitations = _extract_metric(combined_text, ("Invitations issued", "Invitations"))
+    if invitations is None and len(cell_texts) >= 4:
+        invitations = _parse_int(cell_texts[3])
+
+    crs_cutoff = _extract_metric(combined_text, ("CRS score of lowest-ranked candidate invited", "CRS"))
+    if crs_cutoff is None and len(cell_texts) >= 5:
+        crs_cutoff = _parse_int(cell_texts[4])
+
+    program = _extract_program(combined_text)
+    if program is None:
+        for cell_text in cell_texts:
+            if not _parse_int(cell_text) and _extract_draw_date(cell_text) is None:
+                program = cell_text
+                break
+
+    return {
+        "draw_number": draw_number,
+        "draw_date": draw_date,
+        "program": program,
+        "invitations": invitations,
+        "crs_cutoff": crs_cutoff,
+    }
+
+
 def _find_latest_draw_container(soup):
-    selectors = [
-        "table tbody tr",
-        ".table tbody tr",
-        "main table tr",
-        "section.panel",
-        "article",
-    ]
+    selectors = ["section.panel", "article", "main", "body"]
     for selector in selectors:
         matches = [tag for tag in soup.select(selector) if _looks_like_draw_block(tag)]
         if matches:
@@ -66,6 +106,16 @@ def _looks_like_draw_block(tag):
     normalized = text.lower()
     required_markers = ("round", "draw", "invitations", "crs")
     return sum(marker in normalized for marker in required_markers) >= 2
+
+
+def _parse_free_text_block(text):
+    return {
+        "draw_number": _extract_draw_number(text),
+        "draw_date": _extract_draw_date(text),
+        "program": _extract_program(text),
+        "invitations": _extract_metric(text, ("Invitations issued", "Invitations")),
+        "crs_cutoff": _extract_metric(text, ("CRS score of lowest-ranked candidate invited", "CRS")),
+    }
 
 
 def _extract_draw_number(text):
@@ -107,9 +157,7 @@ def _extract_metric(text, labels):
         match = pattern.search(text)
         if match:
             return int(match.group(1).replace(",", ""))
-
-    all_numbers = NUMBER_PATTERN.findall(text)
-    return int(all_numbers[0].replace(",", "")) if all_numbers else None
+    return None
 
 
 def _extract_program(text):
@@ -129,3 +177,12 @@ def _extract_program(text):
         if program.lower() in lowered:
             return program
     return None
+
+
+def _parse_int(text):
+    if not text:
+        return None
+    match = NUMBER_PATTERN.search(text)
+    if not match:
+        return None
+    return int(match.group(1).replace(",", ""))
