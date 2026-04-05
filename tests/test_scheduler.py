@@ -55,6 +55,36 @@ BROKEN_HTML_FIXTURE = """
 """
 
 
+STALE_HTML_FIXTURE = """
+<html>
+  <body>
+    <main>
+      <table>
+        <thead>
+          <tr>
+            <th>Round</th>
+            <th>Date</th>
+            <th>Program</th>
+            <th>Invitations issued</th>
+            <th>CRS score of lowest-ranked candidate invited</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>341</td>
+            <td>March 21, 2025</td>
+            <td>French language proficiency (Version 1)</td>
+            <td>7,500</td>
+            <td>379</td>
+          </tr>
+        </tbody>
+      </table>
+    </main>
+  </body>
+</html>
+"""
+
+
 class SchedulerTests(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.TemporaryDirectory()
@@ -105,7 +135,7 @@ class SchedulerTests(unittest.TestCase):
         )
 
         self.assertEqual(result.reason, "http_failed_browser_used")
-        self.assertEqual(result.source_kind, "browser")
+        self.assertEqual(result.source_kind, "mcp_browser")
         self.assertTrue(result.used_fallback)
         self.assertEqual(result.latest_draw.draw_number, 408)
 
@@ -132,6 +162,32 @@ class SchedulerTests(unittest.TestCase):
 
         self.assertEqual(result.reason, "http_failed_browser_used")
         self.assertEqual(result.latest_draw.draw_key, "2026-04-02_408")
+
+    def test_stale_http_result_triggers_browser_provider(self):
+        def http_provider(url):
+            return SourcePayload(
+                source_kind="http",
+                source_url=url,
+                fetched_at="2026-04-05T00:00:00Z",
+                html=STALE_HTML_FIXTURE,
+                rows=None,
+                diagnostics={"status_code": 200},
+            )
+
+        def browser_provider(url, fixture_path=None):
+            return fetch_browser_source(url=url, fixture_path=self.fixture_path)
+
+        result = run_check(
+            state_file=self.state_file,
+            dry_run=True,
+            http_provider=http_provider,
+            browser_provider=browser_provider,
+        )
+
+        self.assertEqual(result.reason, "http_parse_low_confidence_browser_used")
+        self.assertEqual(result.source_kind, "mcp_browser")
+        self.assertTrue(result.used_fallback)
+        self.assertEqual(result.latest_draw.draw_number, 408)
 
     def test_successful_run_writes_state_and_repeat_run_reports_already_seen(self):
         def http_provider(url):

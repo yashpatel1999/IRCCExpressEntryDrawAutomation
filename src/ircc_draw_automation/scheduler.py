@@ -1,8 +1,9 @@
-from ircc_draw_automation.browser_source import fetch_browser_source
 from ircc_draw_automation.fetcher import DEFAULT_SOURCE_URL, fetch_http_source
 from ircc_draw_automation.models import SchedulerRunResult, utc_now_iso
+from ircc_draw_automation.mcp_browser_source import fetch_browser_source
 from ircc_draw_automation.parser import parse_latest_draw_from_html, parse_latest_draw_from_rows
 from ircc_draw_automation.state_store import JsonStateStore
+from ircc_draw_automation.validator import validate_draw_record
 
 
 def run_check(
@@ -23,20 +24,40 @@ def run_check(
     if use_browser:
         source_payload = browser_provider(url=source_url, fixture_path=browser_rows_file)
         latest_draw = parse_latest_draw_from_rows(source_payload.rows, source_payload.source_url)
+        validation = validate_draw_record(latest_draw)
+        if not validation.is_valid:
+            raise ValueError("Forced browser path produced invalid data: %s" % validation.reason)
         reason = "browser_forced"
         used_fallback = False
+        diagnostics["validation"] = validation.to_dict()
     else:
+        http_error = None
+        fallback_reason = None
         try:
             source_payload = http_provider(url=source_url)
             latest_draw = parse_latest_draw_from_html(source_payload.html, source_payload.source_url)
-            reason = "http_primary_success"
-            used_fallback = False
-        except Exception as http_error:
+            validation = validate_draw_record(latest_draw)
+            diagnostics["validation"] = validation.to_dict()
+            if validation.is_valid:
+                reason = "http_primary_success"
+                used_fallback = False
+            else:
+                fallback_reason = "http_parse_low_confidence_browser_used"
+                http_error = ValueError("HTTP parse did not pass validation: %s" % validation.reason)
+        except Exception as exc:
+            http_error = exc
+            fallback_reason = "http_failed_browser_used"
+
+        if http_error is not None and (not diagnostics.get("validation") or not diagnostics["validation"].get("is_valid")):
             diagnostics["http_error"] = str(http_error)
             source_payload = browser_provider(url=source_url, fixture_path=browser_rows_file)
             latest_draw = parse_latest_draw_from_rows(source_payload.rows, source_payload.source_url)
-            reason = "http_failed_browser_used"
+            validation = validate_draw_record(latest_draw)
+            if not validation.is_valid:
+                raise ValueError("Browser fallback produced invalid data: %s" % validation.reason)
+            reason = fallback_reason or "http_failed_browser_used"
             used_fallback = True
+            diagnostics["validation"] = validation.to_dict()
 
     changed = latest_draw.draw_key != current_state.get("last_seen_draw_key")
     change_status = "new_draw_detected" if changed else "draw_already_seen"

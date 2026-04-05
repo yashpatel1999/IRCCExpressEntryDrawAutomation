@@ -61,11 +61,15 @@ The initial implementation scaffold now lives under:
 - `src/ircc_draw_automation/fetcher.py`
   - Fetches and normalizes the IRCC rounds page through the HTTP provider.
 - `src/ircc_draw_automation/browser_source.py`
-  - Loads browser-rendered table rows through a JSON fixture/adapter path.
+  - Legacy browser-row loader used by the MCP browser adapter.
+- `src/ircc_draw_automation/mcp_browser_source.py`
+  - MCP-branded browser fallback provider for rendered table rows.
 - `src/ircc_draw_automation/parser.py`
   - Extracts the latest draw payload from HTML or normalized row data.
+- `src/ircc_draw_automation/validator.py`
+  - Rejects stale, incomplete, or implausible parsed draws.
 - `src/ircc_draw_automation/scheduler.py`
-  - Runs HTTP-first checks with browser fallback and persisted state.
+  - Runs HTTP-first checks with MCP browser fallback and persisted state.
 - `src/ircc_draw_automation/state_store.py`
   - Stores `last_seen_draw_key` and related run metadata in a local JSON file.
 - `src/ircc_draw_automation/main.py`

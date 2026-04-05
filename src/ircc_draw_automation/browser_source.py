@@ -40,7 +40,7 @@ def fetch_browser_source(url=DEFAULT_SOURCE_URL, fixture_path=None):
         raise ValueError("Browser source fixture did not contain any recognizable rows.")
 
     return SourcePayload(
-        source_kind="browser",
+        source_kind="mcp_browser",
         source_url=payload.get("source_url", url),
         fetched_at=payload.get("fetched_at", utc_now_iso()),
         html=None,
