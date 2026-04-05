@@ -17,6 +17,7 @@ def build_parser():
     check_parser.add_argument("--dry-run", action="store_true")
     check_parser.add_argument("--use-browser", action="store_true")
     check_parser.add_argument("--browser-rows-file", default=None)
+    check_parser.add_argument("--html-file", default=None)
 
     notify_parser = subparsers.add_parser("send_test_notification")
     notify_parser.add_argument("--message", default="IRCC notifier test message")
@@ -35,11 +36,12 @@ def main(argv=None):
         if command == "check_latest_draw":
             result = run_check(
                 source_url=args.source_url,
-                state_file=args.state_file,
-                dry_run=args.dry_run,
-                use_browser=args.use_browser,
-                browser_rows_file=args.browser_rows_file,
-            )
+            state_file=args.state_file,
+            dry_run=args.dry_run,
+            use_browser=args.use_browser,
+            browser_rows_file=args.browser_rows_file,
+            html_file=args.html_file,
+        )
             payload = result.to_dict()
         elif command == "send_test_notification":
             notifier = build_default_notifier(dry_run=args.dry_run)

@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import sys
 
 
@@ -17,4 +18,13 @@ def get_logger(name="ircc_draw_automation"):
 def log_event(logger, event_type, **fields):
     payload = {"event": event_type}
     payload.update(fields)
-    logger.info(json.dumps(payload, sort_keys=True))
+    line = json.dumps(payload, sort_keys=True)
+    logger.info(line)
+
+    log_file = os.environ.get("IRCC_LOG_FILE")
+    if log_file:
+        directory = os.path.dirname(log_file)
+        if directory and not os.path.exists(directory):
+            os.makedirs(directory)
+        with open(log_file, "a", encoding="utf-8") as handle:
+            handle.write(line + "\n")

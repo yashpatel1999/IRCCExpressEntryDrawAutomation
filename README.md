@@ -308,8 +308,36 @@ For the public ntfy service, set:
 - `NTFY_TOPIC = your-private-topic`
 - `NTFY_TITLE = IRCC Express Entry Draw Alert`
 
+### 10-second fixture test
+
+If you want GitHub Actions to test against an HTML file, the file must be committed to the repository first.
+
+Then run the workflow manually with:
+
+- `html_file = Test.html`
+- `delay_seconds = 10`
+
+Example:
+
+```text
+workflow_dispatch inputs
+html_file: Test.html
+delay_seconds: 10
+```
+
+The workflow will wait 10 seconds, load that committed HTML file, compare it to the saved JSON state, and publish a notification if it detects a new draw.
+
 ### If you self-host ntfy later
 
 - Set `NTFY_SERVER_URL` to your server.
 - Configure auth and ACLs on the server before publishing alerts.
 - Keep the topic private and unguessable.
+
+## 16) Log file
+
+Each scheduler run now appends structured JSON events to the file configured by `IRCC_LOG_FILE`.
+
+- Local runs can use a path like `state/ircc_draw.log.jsonl`
+- GitHub Actions uses the same path and publishes it with scheduler state
+
+This gives you a durable run history for debugging after the fact.

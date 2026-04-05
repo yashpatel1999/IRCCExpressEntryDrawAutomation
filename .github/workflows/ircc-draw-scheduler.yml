@@ -4,6 +4,15 @@ on:
   schedule:
     - cron: "*/30 * * * *"
   workflow_dispatch:
+    inputs:
+      html_file:
+        description: "Relative path to a committed HTML fixture"
+        required: false
+        default: ""
+      delay_seconds:
+        description: "Delay before running the check"
+        required: false
+        default: "0"
 
 permissions:
   contents: write
@@ -53,18 +62,30 @@ jobs:
         env:
           PYTHONPATH: src
           IRCC_STATE_FILE: state/ircc_draw_state.json
+          IRCC_LOG_FILE: state/ircc_draw.log.jsonl
           NTFY_SERVER_URL: ${{ secrets.NTFY_SERVER_URL }}
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           NTFY_TITLE: ${{ secrets.NTFY_TITLE }}
-        run: python -m ircc_draw_automation.main check_latest_draw
+        run: |
+          if [ -n "${{ github.event.inputs.delay_seconds }}" ] && [ "${{ github.event.inputs.delay_seconds }}" != "0" ]; then
+            sleep "${{ github.event.inputs.delay_seconds }}"
+          fi
+          if [ -n "${{ github.event.inputs.html_file }}" ]; then
+            python -m ircc_draw_automation.main check_latest_draw --html-file "${{ github.event.inputs.html_file }}"
+          else
+            python -m ircc_draw_automation.main check_latest_draw
+          fi
 
       - name: Publish updated state branch
         run: |
-          if [ -f state/ircc_draw_state.json ]; then
+          if [ -f state/ircc_draw_state.json ] || [ -f state/ircc_draw.log.jsonl ]; then
             git checkout -B scheduler-state
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add -f state/ircc_draw_state.json
+            if [ -f state/ircc_draw.log.jsonl ]; then
+              git add -f state/ircc_draw.log.jsonl
+            fi
             if git diff --cached --quiet; then
               echo "No state changes to publish"
             else
