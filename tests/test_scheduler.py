@@ -238,3 +238,33 @@ class SchedulerTests(unittest.TestCase):
 
         self.assertFalse(result.state_updated)
         self.assertFalse(os.path.exists(self.state_file))
+        self.assertIsNone(result.notification_result)
+
+    def test_no_notification_on_dry_run(self):
+        calls = []
+
+        def http_provider(url):
+            return SourcePayload(
+                source_kind="http",
+                source_url=url,
+                fetched_at="2026-04-05T00:00:00Z",
+                html=HTML_FIXTURE,
+                rows=None,
+                diagnostics={"status_code": 200},
+            )
+
+        class DummyNotifier(object):
+            def send(self, message):
+                calls.append(message)
+                raise AssertionError("notifier should not be called during dry_run")
+
+        result = run_check(
+            state_file=self.state_file,
+            dry_run=True,
+            http_provider=http_provider,
+            browser_provider=None,
+            notifier=DummyNotifier(),
+        )
+
+        self.assertEqual(calls, [])
+        self.assertIsNone(result.notification_result)

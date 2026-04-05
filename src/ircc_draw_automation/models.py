@@ -65,6 +65,7 @@ class SchedulerRunResult:
         source_kind,
         used_fallback,
         state_updated,
+        notification_result=None,
         diagnostics=None,
     ):
         self.latest_draw = latest_draw
@@ -74,6 +75,7 @@ class SchedulerRunResult:
         self.source_kind = source_kind
         self.used_fallback = used_fallback
         self.state_updated = state_updated
+        self.notification_result = notification_result
         self.diagnostics = diagnostics or {}
 
     def to_dict(self):
@@ -84,6 +86,7 @@ class SchedulerRunResult:
             "source_kind": self.source_kind,
             "used_fallback": self.used_fallback,
             "state_updated": self.state_updated,
+            "notification_result": self.notification_result.to_dict() if self.notification_result else None,
             "latest_draw": self.latest_draw.to_dict(),
             "diagnostics": self.diagnostics,
         }

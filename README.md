@@ -234,3 +234,42 @@ Run expectations:
 - HTTP fetch/parser is tried first.
 - MCP browser fallback is used only if the HTTP result is missing, stale, or invalid.
 - The state file is not committed to `main`; it lives in the `scheduler-state` branch only.
+
+## 14) State, Notifier, Observability
+
+### JSON state
+
+The scheduler persists JSON at `IRCC_STATE_FILE` or `.ircc_draw_state.json` by default. The state includes:
+
+- `last_seen_draw_key`
+- `content_hash`
+- `last_checked_at`
+- `last_source_kind`
+- `notifications`
+
+### Notifier
+
+The notifier is now a separate module with two modes:
+
+- `DryRunNotifier`
+  - Used automatically in `--dry-run` runs or when Twilio is not configured.
+- `TwilioNotifier`
+  - Sends SMS/WhatsApp through Twilio when `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`, and `TWILIO_TO_NUMBER` are present.
+
+The message text is built from the validated draw record:
+
+```text
+New IRCC Draw #408 (2026-04-02) | Program: Trades Occupations, 2026-Version 3 | ITAs: 3000 | CRS: 477
+```
+
+### Observability
+
+Structured JSON logs are emitted for:
+
+- run start
+- HTTP parse success/failure
+- browser fallback usage
+- state update
+- notification send result
+
+These logs go to stdout, which makes them visible in GitHub Actions and easy to scrape from a VPS or container host.
