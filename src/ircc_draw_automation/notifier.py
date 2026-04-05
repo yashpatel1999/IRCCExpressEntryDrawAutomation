@@ -128,3 +128,12 @@ class TwilioNotifier(Notifier):
 
         payload = response.json()
         return NotificationResult(True, "twilio", message, message_id=payload.get("sid"), reason="sent")
+
+
+def build_default_notifier(dry_run=False):
+    notifier = NtfyNotifier()
+    if not notifier.configured():
+        notifier = TwilioNotifier()
+    if dry_run or not notifier.configured():
+        notifier = DryRunNotifier()
+    return notifier

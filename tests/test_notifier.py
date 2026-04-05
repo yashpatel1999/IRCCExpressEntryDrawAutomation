@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import Mock, patch
 
-from ircc_draw_automation.notifier import DryRunNotifier, NtfyNotifier, TwilioNotifier
+from ircc_draw_automation.notifier import DryRunNotifier, NtfyNotifier, TwilioNotifier, build_default_notifier
 
 
 class NotifierTests(unittest.TestCase):
@@ -49,3 +49,8 @@ class NotifierTests(unittest.TestCase):
         self.assertEqual(args[0], "https://ntfy.sh/ircc-draw-test-topic")
         self.assertEqual(kwargs["data"], b"New IRCC draw")
         self.assertEqual(kwargs["headers"]["Title"], "IRCC Alert")
+
+    def test_default_notifier_uses_dry_run_when_unconfigured(self):
+        notifier = build_default_notifier(dry_run=False)
+
+        self.assertIsInstance(notifier, DryRunNotifier)

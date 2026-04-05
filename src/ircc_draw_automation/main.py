@@ -2,6 +2,7 @@ import argparse
 import json
 
 from ircc_draw_automation.fetcher import DEFAULT_SOURCE_URL
+from ircc_draw_automation.notifier import build_default_notifier
 from ircc_draw_automation.scheduler import run_check
 
 
@@ -16,6 +17,10 @@ def build_parser():
     check_parser.add_argument("--use-browser", action="store_true")
     check_parser.add_argument("--browser-rows-file", default=None)
 
+    notify_parser = subparsers.add_parser("send_test_notification")
+    notify_parser.add_argument("--message", default="IRCC notifier test message")
+    notify_parser.add_argument("--dry-run", action="store_true")
+
     return parser
 
 
@@ -25,17 +30,27 @@ def main(argv=None):
     command = args.command or "check_latest_draw"
 
     try:
-        if command != "check_latest_draw":
+        if command == "check_latest_draw":
+            result = run_check(
+                source_url=args.source_url,
+                state_file=args.state_file,
+                dry_run=args.dry_run,
+                use_browser=args.use_browser,
+                browser_rows_file=args.browser_rows_file,
+            )
+            payload = result.to_dict()
+        elif command == "send_test_notification":
+            notifier = build_default_notifier(dry_run=args.dry_run)
+            notification_result = notifier.send(args.message)
+            payload = {
+                "sent": notification_result.sent,
+                "provider": notification_result.provider,
+                "message": notification_result.message,
+                "message_id": notification_result.message_id,
+                "reason": notification_result.reason,
+            }
+        else:
             raise ValueError("Unsupported command: %s" % command)
-
-        result = run_check(
-            source_url=args.source_url,
-            state_file=args.state_file,
-            dry_run=args.dry_run,
-            use_browser=args.use_browser,
-            browser_rows_file=args.browser_rows_file,
-        )
-        payload = result.to_dict()
     except Exception as exc:
         payload = {
             "changed": False,
