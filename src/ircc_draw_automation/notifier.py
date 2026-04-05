@@ -31,6 +31,68 @@ class DryRunNotifier(Notifier):
         return NotificationResult(True, "dry_run", message, reason="dry_run")
 
 
+class NtfyNotifier(Notifier):
+    def __init__(
+        self,
+        server_url=None,
+        topic=None,
+        title=None,
+        username=None,
+        password=None,
+        token=None,
+    ):
+        self.server_url = (server_url or os.environ.get("NTFY_SERVER_URL") or "https://ntfy.sh").rstrip("/")
+        self.topic = topic or os.environ.get("NTFY_TOPIC")
+        self.title = title or os.environ.get("NTFY_TITLE") or "IRCC Express Entry Draw Alert"
+        self.username = username or os.environ.get("NTFY_USERNAME")
+        self.password = password or os.environ.get("NTFY_PASSWORD")
+        self.token = token or os.environ.get("NTFY_TOKEN")
+
+    def configured(self):
+        return bool(self.server_url and self.topic)
+
+    def _build_headers(self):
+        headers = {
+            "Title": self.title,
+            "Priority": "4",
+        }
+        if self.token:
+            headers["Authorization"] = "Bearer %s" % self.token
+        return headers
+
+    def send(self, message):
+        if not self.configured():
+            return NotificationResult(False, "ntfy", message, reason="ntfy_not_configured")
+
+        url = "%s/%s" % (self.server_url, self.topic)
+        auth = None
+        if self.username and self.password:
+            auth = (self.username, self.password)
+        response = requests.post(
+            url,
+            data=message.encode("utf-8"),
+            headers=self._build_headers(),
+            auth=auth,
+            timeout=20,
+        )
+        if response.status_code >= 400:
+            return NotificationResult(
+                False,
+                "ntfy",
+                message,
+                reason="ntfy_http_%s" % response.status_code,
+            )
+
+        message_id = None
+        try:
+            payload = response.json()
+            message_id = payload.get("id")
+        except ValueError:
+            payload = None
+
+        return NotificationResult(True, "ntfy", message, message_id=message_id, reason="sent")
+
+
 class TwilioNotifier(Notifier):
     def __init__(self, account_sid=None, auth_token=None, from_number=None, to_number=None):
         self.account_sid = account_sid or os.environ.get("TWILIO_ACCOUNT_SID")

@@ -1,6 +1,6 @@
 # IRCC Express Entry Draw Notifier
 
-This project is a starter architecture for monitoring the IRCC Express Entry rounds page and notifying you by SMS or WhatsApp when a **new draw** is published.
+This project is a starter architecture for monitoring the IRCC Express Entry rounds page and notifying you on iPhone when a **new draw** is published.
 
 Target page:
 - https://www.canada.ca/en/immigration-refugees-citizenship/corporate/mandate/policies-operational-instructions-agreements/ministerial-instructions/express-entry-rounds.html
@@ -31,7 +31,7 @@ Target page:
 └─────────┬──────────┘
           │ message
 ┌─────────▼──────────┐
-│ Notifier           │  (Twilio SMS/WhatsApp)
+│ Notifier           │  (ntfy push notifications; Twilio optional)
 └─────────┬──────────┘
           │ send result
 ┌─────────▼──────────┐
@@ -132,14 +132,20 @@ This prevents false positives from whitespace/page template changes.
 
 ## 5) Notification channels
 
-### SMS
-- Provider: Twilio Programmable SMS
-- Destination: your verified number
+### iPhone push notifications
 
-### WhatsApp
-- Provider: Twilio WhatsApp (sandbox for dev, approved sender in prod)
-- Message template example:
-  - `New IRCC Draw #341 (2026-03-20) | Program: CEC | ITAs: 7,500 | CRS: 515`
+Recommended provider: `ntfy`
+
+- Create or choose a topic name, then subscribe to that topic in the iPhone app.
+- Publish alerts to `https://ntfy.sh/<your-topic>` by default.
+- No account is required for the public ntfy service if you use an unguessable topic name.
+
+Example message:
+- `New IRCC Draw #408 (2026-04-02) | Program: Trades Occupations, 2026-Version 3 | ITAs: 3000 | CRS: 477`
+
+### Optional fallback
+
+- Twilio SMS/WhatsApp is still available as a fallback backend if you configure the Twilio environment variables.
 
 ## 6) Where MCP server fits
 
@@ -191,7 +197,7 @@ AI is not required for basic detection, but useful for:
 
 ## 9) Security checklist
 
-- Secrets in env vars / secret manager (`TWILIO_AUTH_TOKEN`, etc.).
+- Secrets in env vars / secret manager (`NTFY_TOPIC`, `TWILIO_AUTH_TOKEN`, etc.).
 - No secrets in logs.
 - Validate outbound destination numbers.
 - Signed webhook verification if you later add inbound callbacks.
@@ -249,10 +255,12 @@ The scheduler persists JSON at `IRCC_STATE_FILE` or `.ircc_draw_state.json` by d
 
 ### Notifier
 
-The notifier is now a separate module with two modes:
+The notifier is now a separate module with three modes:
 
 - `DryRunNotifier`
-  - Used automatically in `--dry-run` runs or when Twilio is not configured.
+  - Used automatically in `--dry-run` runs or when no notifier backend is configured.
+- `NtfyNotifier`
+  - Sends push notifications to the configured ntfy topic when `NTFY_TOPIC` is set.
 - `TwilioNotifier`
   - Sends SMS/WhatsApp through Twilio when `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`, and `TWILIO_TO_NUMBER` are present.
 
@@ -273,3 +281,21 @@ Structured JSON logs are emitted for:
 - notification send result
 
 These logs go to stdout, which makes them visible in GitHub Actions and easy to scrape from a VPS or container host.
+
+## 15) ntfy setup
+
+### If you use the public ntfy service
+
+1. Install the ntfy iPhone app from the App Store.
+2. Pick a private topic name, for example `ircc-draw-alert-2c8f4c`.
+3. In the app, subscribe to that topic.
+4. Set `NTFY_TOPIC=ircc-draw-alert-2c8f4c` in `.env`.
+5. Leave `NTFY_SERVER_URL=https://ntfy.sh`.
+
+No ntfy website account is required for this flow.
+
+### If you self-host ntfy later
+
+- Set `NTFY_SERVER_URL` to your server.
+- Configure auth and ACLs on the server before publishing alerts.
+- Keep the topic private and unguessable.

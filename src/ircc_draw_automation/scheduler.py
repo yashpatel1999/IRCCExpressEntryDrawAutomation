@@ -2,7 +2,7 @@ from ircc_draw_automation.enricher import build_message
 from ircc_draw_automation.fetcher import DEFAULT_SOURCE_URL, fetch_http_source
 from ircc_draw_automation.models import SchedulerRunResult, utc_now_iso
 from ircc_draw_automation.mcp_browser_source import fetch_browser_source
-from ircc_draw_automation.notifier import DryRunNotifier, TwilioNotifier
+from ircc_draw_automation.notifier import DryRunNotifier, NtfyNotifier, TwilioNotifier
 from ircc_draw_automation.observability import get_logger, log_event
 from ircc_draw_automation.parser import parse_latest_draw_from_html, parse_latest_draw_from_rows
 from ircc_draw_automation.state_store import JsonStateStore
@@ -23,7 +23,9 @@ def run_check(
     http_provider = http_provider or fetch_http_source
     browser_provider = browser_provider or fetch_browser_source
     if notifier is None:
-        notifier = TwilioNotifier()
+        notifier = NtfyNotifier()
+        if not notifier.configured():
+            notifier = TwilioNotifier()
         if dry_run or not notifier.configured():
             notifier = DryRunNotifier()
     logger = logger or get_logger()
