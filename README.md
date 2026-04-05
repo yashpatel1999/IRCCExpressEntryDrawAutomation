@@ -59,15 +59,35 @@ Target page:
 The initial implementation scaffold now lives under:
 
 - `src/ircc_draw_automation/fetcher.py`
-  - Fetches and normalizes the IRCC rounds page.
+  - Fetches and normalizes the IRCC rounds page through the HTTP provider.
+- `src/ircc_draw_automation/browser_source.py`
+  - Loads browser-rendered table rows through a JSON fixture/adapter path.
 - `src/ircc_draw_automation/parser.py`
-  - Extracts the latest draw payload from the fetched HTML.
+  - Extracts the latest draw payload from HTML or normalized row data.
 - `src/ircc_draw_automation/scheduler.py`
-  - Runs the fetch + parse pipeline and flags whether the draw changed.
+  - Runs HTTP-first checks with browser fallback and persisted state.
+- `src/ircc_draw_automation/state_store.py`
+  - Stores `last_seen_draw_key` and related run metadata in a local JSON file.
 - `src/ircc_draw_automation/main.py`
-  - Minimal CLI entrypoint that prints the scheduler result as JSON.
+  - CLI entrypoint for `check_latest_draw`.
 - `tests/test_parser.py`
-  - Parser smoke test with a frozen HTML snippet.
+  - Parser tests with HTML and browser-row fixtures.
+
+## 2.2) Current CLI
+
+Run the default check:
+
+```powershell
+$env:PYTHONPATH='src'
+python -m ircc_draw_automation.main check_latest_draw
+```
+
+Force the browser-backed fixture path:
+
+```powershell
+$env:PYTHONPATH='src'
+python -m ircc_draw_automation.main check_latest_draw --use-browser --browser-rows-file tests/fixtures/browser_rows_fixture.json --dry-run
+```
 
 ```json
 {

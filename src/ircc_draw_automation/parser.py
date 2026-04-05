@@ -1,7 +1,7 @@
 import hashlib
 import re
 
-from bs4 import BeautifulSoup, Tag
+from bs4 import BeautifulSoup
 
 from ircc_draw_automation.models import DrawRecord, utc_now_iso
 
@@ -12,76 +12,122 @@ DATE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 NUMBER_PATTERN = re.compile(r"(\d[\d,]*)")
+HEADER_KEY_MAP = {
+    "round": "draw_number",
+    "draw": "draw_number",
+    "date": "draw_date",
+    "program": "program",
+    "invitations issued": "invitations",
+    "invitations": "invitations",
+    "crs score of lowest ranked candidate invited": "crs_cutoff",
+    "crs score": "crs_cutoff",
+    "crs": "crs_cutoff",
+}
 
 
 def parse_latest_draw(html, source_url):
-    soup = BeautifulSoup(html, "html.parser")
-    parsed_row = _parse_latest_table_row(soup)
-    if parsed_row is not None:
-        candidate, parsed_values = parsed_row
-    else:
-        candidate = _find_latest_draw_container(soup)
-        if candidate is None:
-            raise ValueError("Could not locate a draw container in the IRCC page.")
-        parsed_values = _parse_free_text_block(candidate.get_text(" ", strip=True))
+    return parse_latest_draw_from_html(html, source_url)
 
-    if parsed_values["draw_number"] is None or parsed_values["draw_date"] is None:
+
+def parse_latest_draw_from_html(html, source_url):
+    soup = BeautifulSoup(html, "html.parser")
+    table_rows = _extract_rows_from_tables(soup)
+    if table_rows:
+        return parse_latest_draw_from_rows(table_rows, source_url)
+
+    candidate = _find_latest_draw_container(soup)
+    if candidate is None:
         raise ValueError("Could not locate a draw container in the IRCC page.")
 
-    content_hash = "sha256:" + hashlib.sha256(str(candidate).encode("utf-8")).hexdigest()
-
-    return DrawRecord(
-        draw_key="%s_%s" % (parsed_values["draw_date"], parsed_values["draw_number"]),
-        draw_number=parsed_values["draw_number"],
-        draw_date=parsed_values["draw_date"],
-        program=parsed_values["program"],
-        invitations=parsed_values["invitations"],
-        crs_cutoff=parsed_values["crs_cutoff"],
-        tie_breaking=None,
-        source_url=source_url,
-        fetched_at=utc_now_iso(),
-        content_hash=content_hash,
-    )
+    parsed_values = _parse_free_text_block(candidate.get_text(" ", strip=True))
+    _validate_candidate(parsed_values)
+    return _build_draw_record(parsed_values, source_url, parsed_values["hash_basis"])
 
 
-def _parse_latest_table_row(soup):
-    table_rows = soup.select("table tbody tr") or soup.select(".table tbody tr") or soup.select("main table tr")
-    for row in table_rows:
-        parsed_values = _parse_table_row(row)
-        if parsed_values is not None:
-            return row, parsed_values
-    return None
+def parse_latest_draw_from_rows(rows, source_url):
+    candidates = []
+    for row in rows:
+        candidate = _parse_row_candidate(row)
+        if candidate is not None:
+            candidates.append(candidate)
+
+    if not candidates:
+        raise ValueError("Could not parse any draw rows.")
+
+    complete_candidates = [candidate for candidate in candidates if _is_complete_candidate(candidate)]
+    if not complete_candidates:
+        raise ValueError("Could not parse a complete draw row.")
+
+    latest_candidate = _select_latest_candidate(complete_candidates)
+    return _build_draw_record(latest_candidate, source_url, latest_candidate["hash_basis"])
 
 
-def _parse_table_row(row):
-    cells = row.find_all(["td", "th"])
-    if not cells:
+def _extract_rows_from_tables(soup):
+    extracted_rows = []
+    for table in soup.select("table"):
+        headers = _extract_table_headers(table)
+        body_rows = table.select("tbody tr")
+        if not body_rows:
+            body_rows = table.select("tr")
+
+        for row in body_rows:
+            cells = [cell.get_text(" ", strip=True) for cell in row.find_all("td")]
+            if not cells:
+                continue
+            normalized_row = _normalize_table_row(headers, cells)
+            if normalized_row:
+                extracted_rows.append(normalized_row)
+    return extracted_rows
+
+
+def _extract_table_headers(table):
+    headers = [header.get_text(" ", strip=True) for header in table.select("thead th")]
+    if headers:
+        return headers
+
+    first_header_row = table.select_one("tr")
+    if not first_header_row:
+        return []
+
+    th_cells = first_header_row.find_all("th")
+    if not th_cells:
+        return []
+    return [cell.get_text(" ", strip=True) for cell in th_cells]
+
+
+def _normalize_table_row(headers, cells):
+    normalized = {}
+    if headers:
+        for index, value in enumerate(cells):
+            if index >= len(headers):
+                continue
+            canonical_key = HEADER_KEY_MAP.get(_normalize_header(headers[index]))
+            if canonical_key:
+                normalized[canonical_key] = value
+
+    if "draw_number" not in normalized and cells:
+        normalized["draw_number"] = cells[0]
+    if "draw_date" not in normalized and len(cells) > 1:
+        normalized["draw_date"] = cells[1]
+    if "program" not in normalized and len(cells) > 2:
+        normalized["program"] = cells[2]
+    if "invitations" not in normalized and len(cells) > 3:
+        normalized["invitations"] = cells[3]
+    if "crs_cutoff" not in normalized and len(cells) > 4:
+        normalized["crs_cutoff"] = cells[4]
+
+    return normalized
+
+
+def _parse_row_candidate(row):
+    draw_number = _parse_int(row.get("draw_number"))
+    draw_date = _extract_draw_date(row.get("draw_date", ""))
+    invitations = _parse_int(row.get("invitations"))
+    crs_cutoff = _parse_int(row.get("crs_cutoff"))
+    program = _clean_text(row.get("program"))
+
+    if draw_number is None and draw_date is None:
         return None
-
-    cell_texts = [cell.get_text(" ", strip=True) for cell in cells]
-    combined_text = " ".join(cell_texts)
-    draw_date = _extract_draw_date(combined_text)
-    if draw_date is None:
-        return None
-
-    draw_number = _extract_draw_number(combined_text)
-    if draw_number is None and cell_texts:
-        draw_number = _parse_int(cell_texts[0])
-
-    invitations = _extract_metric(combined_text, ("Invitations issued", "Invitations"))
-    if invitations is None and len(cell_texts) >= 4:
-        invitations = _parse_int(cell_texts[3])
-
-    crs_cutoff = _extract_metric(combined_text, ("CRS score of lowest-ranked candidate invited", "CRS"))
-    if crs_cutoff is None and len(cell_texts) >= 5:
-        crs_cutoff = _parse_int(cell_texts[4])
-
-    program = _extract_program(combined_text)
-    if program is None:
-        for cell_text in cell_texts:
-            if not _parse_int(cell_text) and _extract_draw_date(cell_text) is None:
-                program = cell_text
-                break
 
     return {
         "draw_number": draw_number,
@@ -89,7 +135,56 @@ def _parse_table_row(row):
         "program": program,
         "invitations": invitations,
         "crs_cutoff": crs_cutoff,
+        "tie_breaking": None,
+        "hash_basis": "|".join(
+            [
+                row.get("draw_number", "") or "",
+                row.get("draw_date", "") or "",
+                row.get("program", "") or "",
+                row.get("invitations", "") or "",
+                row.get("crs_cutoff", "") or "",
+            ]
+        ),
     }
+
+
+def _select_latest_candidate(candidates):
+    return max(candidates, key=_candidate_sort_key)
+
+
+def _candidate_sort_key(candidate):
+    draw_number = candidate.get("draw_number")
+    draw_date = candidate.get("draw_date") or ""
+    return (draw_number if draw_number is not None else -1, draw_date)
+
+
+def _is_complete_candidate(candidate):
+    required_keys = ("draw_number", "draw_date", "invitations", "crs_cutoff")
+    for key in required_keys:
+        if candidate.get(key) is None:
+            return False
+    return True
+
+
+def _validate_candidate(candidate):
+    if not _is_complete_candidate(candidate):
+        raise ValueError("Parsed draw is missing one or more required fields.")
+
+
+def _build_draw_record(parsed_values, source_url, hash_basis):
+    content_hash = "sha256:" + hashlib.sha256(hash_basis.encode("utf-8")).hexdigest()
+    return DrawRecord(
+        draw_key="%s_%s" % (parsed_values["draw_date"], parsed_values["draw_number"]),
+        draw_number=parsed_values["draw_number"],
+        draw_date=parsed_values["draw_date"],
+        program=parsed_values.get("program"),
+        invitations=parsed_values["invitations"],
+        crs_cutoff=parsed_values["crs_cutoff"],
+        tie_breaking=parsed_values.get("tie_breaking"),
+        source_url=source_url,
+        fetched_at=utc_now_iso(),
+        content_hash=content_hash,
+    )
 
 
 def _find_latest_draw_container(soup):
@@ -115,15 +210,17 @@ def _parse_free_text_block(text):
         "program": _extract_program(text),
         "invitations": _extract_metric(text, ("Invitations issued", "Invitations")),
         "crs_cutoff": _extract_metric(text, ("CRS score of lowest-ranked candidate invited", "CRS")),
+        "tie_breaking": None,
+        "hash_basis": text,
     }
 
 
 def _extract_draw_number(text):
     match = DRAW_NUMBER_PATTERN.search(text)
-    if not match:
-        return None
-    value = next(group for group in match.groups() if group)
-    return int(value)
+    if match:
+        value = next(group for group in match.groups() if group)
+        return int(value)
+    return _parse_int(text)
 
 
 def _extract_draw_date(text):
@@ -148,12 +245,12 @@ def _extract_draw_date(text):
         "November": "11",
         "December": "12",
     }
-    return f"{year}-{month_lookup[month_name]}-{int(day):02d}"
+    return "%s-%s-%02d" % (year, month_lookup[month_name], int(day))
 
 
 def _extract_metric(text, labels):
     for label in labels:
-        pattern = re.compile(rf"{re.escape(label)}[^0-9]*(\d[\d,]*)", re.IGNORECASE)
+        pattern = re.compile(r"%s[^0-9]*(\d[\d,]*)" % re.escape(label), re.IGNORECASE)
         match = pattern.search(text)
         if match:
             return int(match.group(1).replace(",", ""))
@@ -161,7 +258,6 @@ def _extract_metric(text, labels):
 
 
 def _extract_program(text):
-    lowered = text.lower()
     known_programs = [
         "Canadian Experience Class",
         "Provincial Nominee Program",
@@ -173,6 +269,7 @@ def _extract_program(text):
         "Agriculture and agri-food occupations",
         "No program specified",
     ]
+    lowered = text.lower()
     for program in known_programs:
         if program.lower() in lowered:
             return program
@@ -186,3 +283,14 @@ def _parse_int(text):
     if not match:
         return None
     return int(match.group(1).replace(",", ""))
+
+
+def _normalize_header(value):
+    return re.sub(r"[^a-z0-9]+", " ", value.lower()).strip()
+
+
+def _clean_text(value):
+    if value is None:
+        return None
+    cleaned = value.strip()
+    return cleaned or None

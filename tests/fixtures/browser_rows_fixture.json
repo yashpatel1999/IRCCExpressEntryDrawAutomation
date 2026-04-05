@@ -1,0 +1,19 @@
+{
+  "source_url": "https://www.canada.ca/en/immigration-refugees-citizenship/corporate/mandate/policies-operational-instructions-agreements/ministerial-instructions/express-entry-rounds.html",
+  "fetched_at": "2026-04-05T00:43:42Z",
+  "headers": [
+    "Round",
+    "Date",
+    "Program",
+    "Invitations issued",
+    "CRS score of lowest-ranked candidate invited"
+  ],
+  "rows": [
+    ["408", "April 2, 2026", "Trades Occupations, 2026-Version 3", "3,000", "477"],
+    ["407", "March 31, 2026", "Canadian Experience Class", "2,250", "509"],
+    ["406", "March 30, 2026", "Provincial Nominee Program", "356", "802"],
+    ["405", "March 18, 2026", "French-Language proficiency 2026-Version 2", "4,000", "393"],
+    ["404", "March 17, 2026", "Canadian Experience Class", "4,000", "507"],
+    ["341", "March 21, 2025", "French language proficiency (Version 1)", "7,500", "379"]
+  ]
+}

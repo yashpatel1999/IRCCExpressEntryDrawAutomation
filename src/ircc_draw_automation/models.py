@@ -1,5 +1,4 @@
 from datetime import datetime
-from typing import Any, Dict, Optional
 
 
 class DrawRecord:
@@ -44,3 +43,47 @@ class DrawRecord:
 
 def utc_now_iso():
     return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
+
+
+class SourcePayload:
+    def __init__(self, source_kind, source_url, fetched_at, html=None, rows=None, diagnostics=None):
+        self.source_kind = source_kind
+        self.source_url = source_url
+        self.fetched_at = fetched_at
+        self.html = html
+        self.rows = rows
+        self.diagnostics = diagnostics or {}
+
+
+class SchedulerRunResult:
+    def __init__(
+        self,
+        latest_draw,
+        changed,
+        reason,
+        change_status,
+        source_kind,
+        used_fallback,
+        state_updated,
+        diagnostics=None,
+    ):
+        self.latest_draw = latest_draw
+        self.changed = changed
+        self.reason = reason
+        self.change_status = change_status
+        self.source_kind = source_kind
+        self.used_fallback = used_fallback
+        self.state_updated = state_updated
+        self.diagnostics = diagnostics or {}
+
+    def to_dict(self):
+        return {
+            "changed": self.changed,
+            "reason": self.reason,
+            "change_status": self.change_status,
+            "source_kind": self.source_kind,
+            "used_fallback": self.used_fallback,
+            "state_updated": self.state_updated,
+            "latest_draw": self.latest_draw.to_dict(),
+            "diagnostics": self.diagnostics,
+        }
