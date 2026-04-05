@@ -218,3 +218,19 @@ AI is not required for basic detection, but useful for:
 - Sends exactly one message per unique draw.
 - Can run in `dry_run` for safe testing.
 - Handles temporary website/provider failures without losing state.
+
+## 13) GitHub Actions Scheduler
+
+The repository now includes a scheduled workflow at `.github/workflows/ircc-draw-scheduler.yml`.
+
+- It runs every 30 minutes and supports manual dispatch.
+- It installs Python, Node, Playwright, and the project dependencies.
+- It restores state from a dedicated `scheduler-state` branch if present.
+- It runs the normal scheduler entrypoint with `IRCC_STATE_FILE=state/ircc_draw_state.json`.
+- It publishes updated state back to `scheduler-state` so the next run can compare against the previous draw.
+
+Run expectations:
+
+- HTTP fetch/parser is tried first.
+- MCP browser fallback is used only if the HTTP result is missing, stale, or invalid.
+- The state file is not committed to `main`; it lives in the `scheduler-state` branch only.

@@ -1,0 +1,71 @@
+name: IRCC Draw Scheduler
+
+on:
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  check-draw:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install Python dependencies
+        run: pip install -r requirements.txt
+
+      - name: Install Node dependencies
+        run: npm ci
+
+      - name: Install Playwright browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Fetch scheduler state branch
+        run: git fetch origin scheduler-state:scheduler-state || true
+
+      - name: Restore scheduler state if it exists
+        run: |
+          mkdir -p state
+          if git show scheduler-state:state/ircc_draw_state.json > state/ircc_draw_state.json 2>/dev/null; then
+            echo "Restored state from scheduler-state branch"
+          else
+            echo "No previous scheduler state found"
+          fi
+
+      - name: Run scheduler
+        env:
+          PYTHONPATH: src
+          IRCC_STATE_FILE: state/ircc_draw_state.json
+        run: python -m ircc_draw_automation.main check_latest_draw
+
+      - name: Publish updated state branch
+        run: |
+          if [ -f state/ircc_draw_state.json ]; then
+            git checkout -B scheduler-state
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add -f state/ircc_draw_state.json
+            if git diff --cached --quiet; then
+              echo "No state changes to publish"
+            else
+              git commit -m "Update scheduler state"
+              git push --force origin scheduler-state
+            fi
+          fi
