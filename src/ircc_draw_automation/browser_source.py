@@ -3,13 +3,16 @@ import os
 import re
 
 from ircc_draw_automation.fetcher import DEFAULT_SOURCE_URL
+from ircc_draw_automation.mcp_client import capture_draw_rows_via_mcp
 from ircc_draw_automation.models import SourcePayload, utc_now_iso
 
 
 HEADER_KEY_MAP = {
+    "#": "draw_number",
     "round": "draw_number",
     "draw": "draw_number",
     "date": "draw_date",
+    "round type": "program",
     "program": "program",
     "invitations issued": "invitations",
     "invitations": "invitations",
@@ -25,27 +28,42 @@ class BrowserSourceUnavailable(RuntimeError):
 
 def fetch_browser_source(url=DEFAULT_SOURCE_URL, fixture_path=None):
     resolved_path = fixture_path or os.environ.get("IRCC_BROWSER_ROWS_FILE")
-    if not resolved_path:
-        raise BrowserSourceUnavailable(
-            "Browser source is unavailable. Set IRCC_BROWSER_ROWS_FILE or use --browser-rows-file."
+    if resolved_path:
+        with open(resolved_path, "r") as handle:
+            payload = json.load(handle)
+
+        headers = payload.get("headers", [])
+        rows = payload.get("rows", [])
+        normalized_rows = _normalize_rows(headers, rows)
+        if not normalized_rows:
+            raise ValueError("Browser source fixture did not contain any recognizable rows.")
+
+        return SourcePayload(
+            source_kind="mcp_browser",
+            source_url=payload.get("source_url", url),
+            fetched_at=payload.get("fetched_at", utc_now_iso()),
+            html=None,
+            rows=normalized_rows,
+            diagnostics={"fixture_path": resolved_path, "row_count": len(normalized_rows)},
         )
 
-    with open(resolved_path, "r") as handle:
-        payload = json.load(handle)
-
-    headers = payload.get("headers", [])
-    rows = payload.get("rows", [])
+    browser_payload = capture_draw_rows_via_mcp(url)
+    headers = browser_payload.get("headers", [])
+    rows = browser_payload.get("rows", [])
     normalized_rows = _normalize_rows(headers, rows)
     if not normalized_rows:
-        raise ValueError("Browser source fixture did not contain any recognizable rows.")
+        raise ValueError("MCP browser capture did not return any recognizable rows.")
 
     return SourcePayload(
         source_kind="mcp_browser",
-        source_url=payload.get("source_url", url),
-        fetched_at=payload.get("fetched_at", utc_now_iso()),
+        source_url=browser_payload.get("source_url", url),
+        fetched_at=browser_payload.get("captured_at", utc_now_iso()),
         html=None,
         rows=normalized_rows,
-        diagnostics={"fixture_path": resolved_path, "row_count": len(normalized_rows)},
+        diagnostics={
+            "live_mcp": True,
+            "row_count": len(normalized_rows),
+        },
     )
 
 
@@ -81,4 +99,7 @@ def _normalize_rows(headers, rows):
 
 
 def _normalize_header(value):
-    return re.sub(r"[^a-z0-9]+", " ", value.lower()).strip()
+    stripped = value.strip().lower()
+    if stripped == "#":
+        return "#"
+    return re.sub(r"[^a-z0-9]+", " ", stripped).strip()

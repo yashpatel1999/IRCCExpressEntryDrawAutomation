@@ -13,9 +13,11 @@ DATE_PATTERN = re.compile(
 )
 NUMBER_PATTERN = re.compile(r"(\d[\d,]*)")
 HEADER_KEY_MAP = {
+    "#": "draw_number",
     "round": "draw_number",
     "draw": "draw_number",
     "date": "draw_date",
+    "round type": "program",
     "program": "program",
     "invitations issued": "invitations",
     "invitations": "invitations",
@@ -286,7 +288,10 @@ def _parse_int(text):
 
 
 def _normalize_header(value):
-    return re.sub(r"[^a-z0-9]+", " ", value.lower()).strip()
+    stripped = value.strip().lower()
+    if stripped == "#":
+        return "#"
+    return re.sub(r"[^a-z0-9]+", " ", stripped).strip()
 
 
 def _clean_text(value):

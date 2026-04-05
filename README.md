@@ -93,6 +93,17 @@ $env:PYTHONPATH='src'
 python -m ircc_draw_automation.main check_latest_draw --use-browser --browser-rows-file tests/fixtures/browser_rows_fixture.json --dry-run
 ```
 
+Live MCP browser path:
+
+```powershell
+npm install
+npx playwright install chromium
+$env:PYTHONPATH='src'
+python -m ircc_draw_automation.main check_latest_draw --dry-run
+```
+
+When HTTP parsing is stale or broken, the app now spawns the local MCP browser server in `mcp/playwright_server.mjs`, opens the live IRCC page in Playwright, and extracts the rendered rows.
+
 ```json
 {
   "draw_key": "2026-03-20_341",
