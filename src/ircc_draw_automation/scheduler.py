@@ -1,4 +1,5 @@
 from ircc_draw_automation.enricher import build_message
+from ircc_draw_automation.config import load_dotenv_file
 from ircc_draw_automation.fetcher import DEFAULT_SOURCE_URL, fetch_http_source
 from ircc_draw_automation.models import SchedulerRunResult, utc_now_iso
 from ircc_draw_automation.mcp_browser_source import fetch_browser_source
@@ -20,6 +21,7 @@ def run_check(
     notifier=None,
     logger=None,
 ):
+    load_dotenv_file()
     http_provider = http_provider or fetch_http_source
     browser_provider = browser_provider or fetch_browser_source
     if notifier is None:

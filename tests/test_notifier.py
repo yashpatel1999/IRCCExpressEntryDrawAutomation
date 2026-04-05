@@ -1,10 +1,23 @@
 import unittest
+from contextlib import contextmanager
+import os
 from unittest.mock import Mock, patch
 
 from ircc_draw_automation.notifier import DryRunNotifier, NtfyNotifier, TwilioNotifier, build_default_notifier
 
 
 class NotifierTests(unittest.TestCase):
+    @contextmanager
+    def _temporary_env(self, **values):
+        original = dict(os.environ)
+        os.environ.clear()
+        os.environ.update(values)
+        try:
+            yield
+        finally:
+            os.environ.clear()
+            os.environ.update(original)
+
     def test_dry_run_notifier_marks_message_as_sent(self):
         notifier = DryRunNotifier()
         result = notifier.send("hello")
@@ -21,11 +34,12 @@ class NotifierTests(unittest.TestCase):
         self.assertEqual(result.reason, "twilio_not_configured")
 
     def test_ntfy_notifier_reports_not_configured_without_env(self):
-        notifier = NtfyNotifier(server_url=None, topic=None)
-        result = notifier.send("hello")
+        with self._temporary_env():
+            notifier = NtfyNotifier(server_url=None, topic=None)
+            result = notifier.send("hello")
 
-        self.assertFalse(result.sent)
-        self.assertEqual(result.reason, "ntfy_not_configured")
+            self.assertFalse(result.sent)
+            self.assertEqual(result.reason, "ntfy_not_configured")
 
     @patch("ircc_draw_automation.notifier.requests.post")
     def test_ntfy_notifier_sends_message_to_topic(self, mock_post):
@@ -51,6 +65,6 @@ class NotifierTests(unittest.TestCase):
         self.assertEqual(kwargs["headers"]["Title"], "IRCC Alert")
 
     def test_default_notifier_uses_dry_run_when_unconfigured(self):
-        notifier = build_default_notifier(dry_run=False)
-
-        self.assertIsInstance(notifier, DryRunNotifier)
+        with self._temporary_env():
+            notifier = build_default_notifier(dry_run=False)
+            self.assertIsInstance(notifier, DryRunNotifier)

@@ -1,6 +1,7 @@
 import argparse
 import json
 
+from ircc_draw_automation.config import load_dotenv_file
 from ircc_draw_automation.fetcher import DEFAULT_SOURCE_URL
 from ircc_draw_automation.notifier import build_default_notifier
 from ircc_draw_automation.scheduler import run_check
@@ -25,6 +26,7 @@ def build_parser():
 
 
 def main(argv=None):
+    load_dotenv_file()
     parser = build_parser()
     args = parser.parse_args(argv)
     command = args.command or "check_latest_draw"

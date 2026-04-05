@@ -4,6 +4,7 @@ import unittest
 
 from ircc_draw_automation.browser_source import fetch_browser_source
 from ircc_draw_automation.models import SourcePayload
+from ircc_draw_automation.notifier import NotificationResult
 from ircc_draw_automation.scheduler import run_check
 
 
@@ -200,17 +201,23 @@ class SchedulerTests(unittest.TestCase):
                 diagnostics={"status_code": 200},
             )
 
+        class DummyNotifier(object):
+            def send(self, message):
+                return NotificationResult(True, "dry_run", message, reason="dry_run")
+
         first_result = run_check(
             state_file=self.state_file,
             dry_run=False,
             http_provider=http_provider,
             browser_provider=None,
+            notifier=DummyNotifier(),
         )
         second_result = run_check(
             state_file=self.state_file,
             dry_run=False,
             http_provider=http_provider,
             browser_provider=None,
+            notifier=DummyNotifier(),
         )
 
         self.assertTrue(first_result.state_updated)

@@ -2,6 +2,11 @@ import os
 
 import requests
 
+from ircc_draw_automation.config import load_dotenv_file
+
+
+load_dotenv_file()
+
 
 class NotificationResult:
     def __init__(self, sent, provider, message, message_id=None, reason=None):
@@ -41,12 +46,12 @@ class NtfyNotifier(Notifier):
         password=None,
         token=None,
     ):
-        self.server_url = (server_url or os.environ.get("NTFY_SERVER_URL") or "https://ntfy.sh").rstrip("/")
-        self.topic = topic or os.environ.get("NTFY_TOPIC")
-        self.title = title or os.environ.get("NTFY_TITLE") or "IRCC Express Entry Draw Alert"
-        self.username = username or os.environ.get("NTFY_USERNAME")
-        self.password = password or os.environ.get("NTFY_PASSWORD")
-        self.token = token or os.environ.get("NTFY_TOKEN")
+        self.server_url = ((server_url or os.environ.get("NTFY_SERVER_URL") or "https://ntfy.sh").strip()).rstrip("/")
+        self.topic = (topic or os.environ.get("NTFY_TOPIC") or "").strip()
+        self.title = (title or os.environ.get("NTFY_TITLE") or "IRCC Express Entry Draw Alert").strip()
+        self.username = (username or os.environ.get("NTFY_USERNAME") or "").strip() or None
+        self.password = (password or os.environ.get("NTFY_PASSWORD") or "").strip() or None
+        self.token = (token or os.environ.get("NTFY_TOKEN") or "").strip() or None
 
     def configured(self):
         return bool(self.server_url and self.topic)
