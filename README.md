@@ -294,6 +294,20 @@ These logs go to stdout, which makes them visible in GitHub Actions and easy to 
 
 No ntfy website account is required for this flow.
 
+### GitHub Actions setup
+
+If the scheduler runs in GitHub Actions, add these repository secrets:
+
+- `NTFY_SERVER_URL`
+- `NTFY_TOPIC`
+- `NTFY_TITLE`  
+
+For the public ntfy service, set:
+
+- `NTFY_SERVER_URL = https://ntfy.sh`
+- `NTFY_TOPIC = your-private-topic`
+- `NTFY_TITLE = IRCC Express Entry Draw Alert`
+
 ### If you self-host ntfy later
 
 - Set `NTFY_SERVER_URL` to your server.

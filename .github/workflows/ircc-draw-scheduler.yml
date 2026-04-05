@@ -53,6 +53,9 @@ jobs:
         env:
           PYTHONPATH: src
           IRCC_STATE_FILE: state/ircc_draw_state.json
+          NTFY_SERVER_URL: ${{ secrets.NTFY_SERVER_URL }}
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          NTFY_TITLE: ${{ secrets.NTFY_TITLE }}
         run: python -m ircc_draw_automation.main check_latest_draw
 
       - name: Publish updated state branch
