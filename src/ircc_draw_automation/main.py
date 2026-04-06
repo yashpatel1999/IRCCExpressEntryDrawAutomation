@@ -35,11 +35,11 @@ def main(argv=None):
         if command == "check_latest_draw":
             result = run_check(
                 source_url=args.source_url,
-            state_file=args.state_file,
-            dry_run=args.dry_run,
-            use_browser=args.use_browser,
-            browser_rows_file=args.browser_rows_file,
-        )
+                state_file=args.state_file,
+                dry_run=args.dry_run,
+                use_browser=args.use_browser,
+                browser_rows_file=args.browser_rows_file,
+            )
             payload = result.to_dict()
         elif command == "send_test_notification":
             notifier = build_default_notifier(dry_run=args.dry_run)
