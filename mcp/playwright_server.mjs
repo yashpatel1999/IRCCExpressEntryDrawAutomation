@@ -16,13 +16,8 @@ async function captureDrawRows(params) {
     throw new Error('capture_draw_rows requires a url');
   }
 
-  const launchOptions = { headless: true, args: ['--disable-gpu'] };
   const executablePath = resolveExecutablePath();
-  if (executablePath) {
-    launchOptions.executablePath = executablePath;
-  }
-
-  const browser = await chromium.launch(launchOptions);
+  const browser = await launchBrowser(executablePath);
   try {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1200 } });
     await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
@@ -43,6 +38,19 @@ async function captureDrawRows(params) {
   } finally {
     await browser.close();
   }
+}
+
+async function launchBrowser(executablePath) {
+  const baseOptions = { headless: true, args: ['--disable-gpu'] };
+  if (executablePath) {
+    try {
+      return await chromium.launch({ ...baseOptions, executablePath });
+    } catch (error) {
+      console.error(`Playwright launch with ${executablePath} failed, retrying with bundled Chromium: ${error.message}`);
+    }
+  }
+
+  return await chromium.launch(baseOptions);
 }
 
 function resolveExecutablePath() {

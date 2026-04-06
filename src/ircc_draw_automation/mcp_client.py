@@ -1,6 +1,8 @@
 import json
 import os
 import subprocess
+import queue
+import threading
 
 
 DEFAULT_MCP_COMMAND = ["node", "mcp/playwright_server.mjs"]
@@ -12,9 +14,10 @@ class McpError(RuntimeError):
 
 
 class McpJsonRpcClient(object):
-    def __init__(self, command=None, cwd=None):
+    def __init__(self, command=None, cwd=None, request_timeout_seconds=None):
         self.command = command or DEFAULT_MCP_COMMAND
         self.cwd = cwd
+        self.request_timeout_seconds = request_timeout_seconds or int(os.environ.get("IRCC_MCP_REQUEST_TIMEOUT_SECONDS", "120"))
         self.process = subprocess.Popen(
             self.command,
             cwd=self.cwd,
@@ -23,6 +26,10 @@ class McpJsonRpcClient(object):
             stderr=subprocess.PIPE,
         )
         self._next_id = 1
+        self._messages = queue.Queue()
+        self._reader_error = None
+        self._reader_thread = threading.Thread(target=self._reader_loop, daemon=True)
+        self._reader_thread.start()
 
     def close(self):
         if self.process and self.process.poll() is None:
@@ -31,6 +38,8 @@ class McpJsonRpcClient(object):
                 self.process.wait(5)
             except Exception:
                 self.process.kill()
+        if self._reader_thread and self._reader_thread.is_alive():
+            self._reader_thread.join(timeout=1)
 
     def request(self, method, params=None):
         request_id = self._next_id
@@ -44,7 +53,14 @@ class McpJsonRpcClient(object):
             payload["params"] = params
         self._send(payload)
         while True:
-            message = self._read_message()
+            try:
+                message = self._messages.get(timeout=self.request_timeout_seconds)
+            except queue.Empty:
+                raise McpError("Timed out waiting for MCP response from %s." % " ".join(self.command))
+            if message is None:
+                if self._reader_error:
+                    raise McpError(self._reader_error)
+                raise McpError("MCP reader stopped unexpectedly.")
             if message.get("id") == request_id:
                 return message
 
@@ -63,6 +79,15 @@ class McpJsonRpcClient(object):
         self.process.stdin.write(header.encode("utf-8"))
         self.process.stdin.write(body)
         self.process.stdin.flush()
+
+    def _reader_loop(self):
+        try:
+            while True:
+                message = self._read_message()
+                self._messages.put(message)
+        except Exception as exc:
+            self._reader_error = str(exc)
+            self._messages.put(None)
 
     def _read_message(self):
         headers = {}
