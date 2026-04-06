@@ -16,15 +16,43 @@ The production path is:
 
 ## Architecture
 
-```text
-GitHub Actions Scheduler
-  -> HTTP fetcher
-  -> deterministic parser
-  -> validator
-  -> MCP browser fallback when needed
-  -> state store
-  -> ntfy notifier
-  -> JSON logs + run summaries
+```mermaid
+flowchart TD
+    A[GitHub Actions Scheduler<br/>Weekdays every 30 min<br/>Toronto business hours] --> B[main.py / check_latest_draw]
+    B --> C[scheduler.run_check]
+
+    C --> D1[Draw Monitor]
+    C --> D2[Pool Distribution Monitor]
+
+    D1 --> E1[HTTP Fetcher]
+    E1 --> F1[Draw Parser]
+    F1 --> G1[Draw Validator]
+    G1 -->|valid| H1[Draw Change Detection]
+    G1 -->|invalid or fetch failed| I1[MCP Browser Fallback]
+    I1 --> J1[Browser Row Parser]
+    J1 --> H1
+
+    D2 --> E2[HTTP Fetcher]
+    E2 --> F2[Pool Distribution Parser]
+    F2 -->|valid| H2[Pool Change Detection]
+    F2 -->|parse failed| I2[MCP Browser Fallback]
+    I2 --> J2[Browser Row Parser]
+    J2 --> H2
+
+    H1 --> K[JsonStateStore]
+    H2 --> K
+
+    K --> L[Notifier]
+    L --> M[ntfy]
+
+    C --> N[Structured Event Log<br/>ircc_draw.log.jsonl]
+    C --> O[Latest Summary<br/>latest_run_summary.json]
+    C --> P[Run History<br/>run_history.jsonl]
+
+    K --> Q[scheduler-state branch]
+    N --> Q
+    O --> Q
+    P --> Q
 ```
 
 There are two independent monitors in the same run:
