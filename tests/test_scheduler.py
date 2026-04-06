@@ -132,6 +132,19 @@ class SchedulerTests(unittest.TestCase):
             diagnostics={"status_code": 200},
         )
 
+    def _pool_distribution_browser_provider(self, url, fixture_path=None):
+        return SourcePayload(
+            source_kind="mcp_browser",
+            source_url=url,
+            fetched_at="2026-04-05T00:00:00Z",
+            html=None,
+            rows=[
+                {"range_label": "601-1200", "candidate_count": "351"},
+                {"range_label": "Total", "candidate_count": "230,186"},
+            ],
+            diagnostics={"live_mcp": True, "row_count": 2},
+        )
+
     def test_http_success_does_not_invoke_browser_provider(self):
         def http_provider(url):
             return SourcePayload(
@@ -493,3 +506,36 @@ class SchedulerTests(unittest.TestCase):
         self.assertEqual(payload["pool_distribution"]["distribution_date"], "2026-03-29")
         self.assertIsNotNone(payload["pool_distribution"]["last_notified_key"])
         self.assertTrue(any("CRS pool distribution updated" in message for message in notifier.messages))
+
+    def test_pool_distribution_http_failure_uses_browser_fallback(self):
+        def http_provider(url):
+            return SourcePayload(
+                source_kind="http",
+                source_url=url,
+                fetched_at="2026-04-05T00:00:00Z",
+                html=HTML_FIXTURE,
+                rows=None,
+                diagnostics={"status_code": 200},
+            )
+
+        def broken_pool_provider(url):
+            raise RuntimeError("pool page unavailable")
+
+        class DummyNotifier(object):
+            def send(self, message):
+                return NotificationResult(True, "dry_run", message, reason="dry_run")
+
+        run_check(
+            state_file=self.state_file,
+            dry_run=False,
+            http_provider=http_provider,
+            browser_provider=None,
+            pool_distribution_provider=broken_pool_provider,
+            pool_distribution_browser_provider=self._pool_distribution_browser_provider,
+            notifier=DummyNotifier(),
+        )
+
+        with open(self.state_file, "r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+
+        self.assertEqual(payload["pool_distribution"]["last_seen_key"], "unknown-date_bcb5657297fb5566")

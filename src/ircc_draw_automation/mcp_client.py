@@ -112,7 +112,7 @@ class McpJsonRpcClient(object):
         return json.loads(body.decode("utf-8"))
 
 
-def capture_draw_rows_via_mcp(url, command=None):
+def capture_table_rows_via_mcp(url, command=None, header_hints=None):
     repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
     client = McpJsonRpcClient(command=command, cwd=repo_root)
     try:
@@ -129,7 +129,10 @@ def capture_draw_rows_via_mcp(url, command=None):
             "tools/call",
             {
                 "name": DEFAULT_TOOL_NAME,
-                "arguments": {"url": url},
+                "arguments": {
+                    "url": url,
+                    "headerHints": header_hints or [],
+                },
             },
         )
         if "error" in response:
@@ -141,3 +144,16 @@ def capture_draw_rows_via_mcp(url, command=None):
         return json.loads(text)
     finally:
         client.close()
+
+
+def capture_draw_rows_via_mcp(url, command=None):
+    return capture_table_rows_via_mcp(
+        url=url,
+        command=command,
+        header_hints=[
+            "round",
+            "date",
+            "invitations issued",
+            "crs score",
+        ],
+    )

@@ -99,6 +99,45 @@ def parse_pool_distribution_from_html(html, source_url):
     )
 
 
+def parse_pool_distribution_from_rows(rows, source_url):
+    normalized_rows = []
+    for row in rows:
+        range_label = _clean_text(row.get("range_label"))
+        candidate_count = _parse_int(row.get("candidate_count"))
+        if not range_label or candidate_count is None:
+            continue
+        normalized_rows.append(
+            {
+                "range_label": range_label,
+                "candidate_count": candidate_count,
+            }
+        )
+
+    if not normalized_rows:
+        raise ValueError("Could not parse CRS pool distribution rows.")
+
+    total_candidates = None
+    for row in normalized_rows:
+        if row["range_label"].lower() == "total":
+            total_candidates = row["candidate_count"]
+            break
+
+    hash_basis = "|".join(
+        ["%s:%s" % (row["range_label"], row["candidate_count"]) for row in normalized_rows]
+    )
+    content_hash = "sha256:" + hashlib.sha256(hash_basis.encode("utf-8")).hexdigest()
+    distribution_key = "unknown-date_%s" % content_hash.split(":", 1)[1][:16]
+    return PoolDistributionRecord(
+        distribution_key=distribution_key,
+        distribution_date=None,
+        total_candidates=total_candidates,
+        rows=normalized_rows,
+        source_url=source_url,
+        fetched_at=utc_now_iso(),
+        content_hash=content_hash,
+    )
+
+
 def _extract_rows_from_tables(soup):
     extracted_rows = []
     for table in soup.select("table"):

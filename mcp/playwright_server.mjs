@@ -12,6 +12,7 @@ function writeMessage(message) {
 
 async function captureDrawRows(params) {
   const url = params.url;
+  const headerHints = (params.headerHints || []).map((value) => normalizeHeader(value));
   if (!url) {
     throw new Error('capture_draw_rows requires a url');
   }
@@ -22,22 +23,52 @@ async function captureDrawRows(params) {
     const page = await browser.newPage({ viewport: { width: 1440, height: 1200 } });
     await page.goto(url, { waitUntil: 'networkidle', timeout: 60000 });
 
-    const headers = await page.locator('table thead th').evaluateAll((ths) =>
-      ths.map((th) => th.textContent.trim())
+    const tables = await page.locator('table').evaluateAll((tableNodes) =>
+      tableNodes.map((table) => {
+        const headers = Array.from(table.querySelectorAll('thead th')).map((th) => th.textContent.trim());
+        const bodyRows = table.querySelectorAll('tbody tr').length ? table.querySelectorAll('tbody tr') : table.querySelectorAll('tr');
+        const rows = Array.from(bodyRows).map((tr) =>
+          Array.from(tr.querySelectorAll('td, th')).map((cell) => cell.textContent.trim())
+        );
+        return { headers, rows };
+      })
     );
-    const rows = await page.locator('table tbody tr').evaluateAll((trs) =>
-      trs.map((tr) => Array.from(tr.querySelectorAll('td')).map((td) => td.textContent.trim()))
-    );
+
+    const selected = selectBestTable(tables, headerHints);
 
     return {
       source_url: url,
       captured_at: new Date().toISOString(),
-      headers,
-      rows,
+      headers: selected.headers,
+      rows: selected.rows,
     };
   } finally {
     await browser.close();
   }
+}
+
+function selectBestTable(tables, headerHints) {
+  if (!tables.length) {
+    return { headers: [], rows: [] };
+  }
+
+  if (!headerHints.length) {
+    return tables[0];
+  }
+
+  const scoredTables = tables.map((table) => {
+    const normalizedHeaders = table.headers.map((header) => normalizeHeader(header));
+    let score = 0;
+    for (const hint of headerHints) {
+      if (normalizedHeaders.some((header) => header.includes(hint))) {
+        score += 1;
+      }
+    }
+    return { table, score };
+  });
+
+  scoredTables.sort((left, right) => right.score - left.score);
+  return scoredTables[0].table;
 }
 
 async function launchBrowser(executablePath) {
@@ -74,6 +105,10 @@ function resolveExecutablePath() {
   return null;
 }
 
+function normalizeHeader(value) {
+  return String(value || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim();
+}
+
 const tools = [
   {
     name: 'capture_draw_rows',
@@ -81,7 +116,11 @@ const tools = [
     inputSchema: {
       type: 'object',
       properties: {
-        url: { type: 'string' }
+        url: { type: 'string' },
+        headerHints: {
+          type: 'array',
+          items: { type: 'string' }
+        }
       },
       required: ['url']
     }

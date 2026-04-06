@@ -6,9 +6,10 @@ from ircc_draw_automation.config import load_dotenv_file
 from ircc_draw_automation.fetcher import DEFAULT_POOL_DISTRIBUTION_URL, DEFAULT_SOURCE_URL, fetch_http_source
 from ircc_draw_automation.models import SchedulerRunResult, SourcePayload, utc_now_iso
 from ircc_draw_automation.mcp_browser_source import fetch_browser_source
+from ircc_draw_automation.browser_source import fetch_pool_distribution_browser_source
 from ircc_draw_automation.notifier import NotificationResult, build_default_notifier
 from ircc_draw_automation.observability import get_logger, log_event
-from ircc_draw_automation.parser import parse_latest_draw_from_html, parse_latest_draw_from_rows, parse_pool_distribution_from_html
+from ircc_draw_automation.parser import parse_latest_draw_from_html, parse_latest_draw_from_rows, parse_pool_distribution_from_html, parse_pool_distribution_from_rows
 from ircc_draw_automation.state_store import JsonStateStore
 from ircc_draw_automation.validator import validate_draw_record
 
@@ -23,6 +24,7 @@ def run_check(
     http_provider=None,
     browser_provider=None,
     pool_distribution_provider=None,
+    pool_distribution_browser_provider=None,
     notifier=None,
     logger=None,
 ):
@@ -31,6 +33,7 @@ def run_check(
     http_provider = http_provider or fetch_http_source
     browser_provider = browser_provider or fetch_browser_source
     pool_distribution_provider = pool_distribution_provider or fetch_http_source
+    pool_distribution_browser_provider = pool_distribution_browser_provider or fetch_pool_distribution_browser_source
     if notifier is None:
         notifier = build_default_notifier(dry_run=dry_run)
     logger = logger or get_logger()
@@ -191,6 +194,7 @@ def run_check(
     pool_distribution_result = _run_pool_distribution_check(
         pool_distribution_url=pool_distribution_url,
         pool_distribution_provider=pool_distribution_provider,
+        pool_distribution_browser_provider=pool_distribution_browser_provider,
         state_store=state_store,
         notifier=notifier,
         logger=logger,
@@ -244,7 +248,7 @@ def run_check(
     )
 
 
-def _run_pool_distribution_check(pool_distribution_url, pool_distribution_provider, state_store, notifier, logger, dry_run, current_state):
+def _run_pool_distribution_check(pool_distribution_url, pool_distribution_provider, pool_distribution_browser_provider, state_store, notifier, logger, dry_run, current_state):
     pool_state = current_state.get("pool_distribution", {})
     result = {
         "source_url": pool_distribution_url,
@@ -256,6 +260,19 @@ def _run_pool_distribution_check(pool_distribution_url, pool_distribution_provid
     try:
         source_payload = pool_distribution_provider(url=pool_distribution_url)
         distribution = parse_pool_distribution_from_html(source_payload.html, source_payload.source_url)
+        result["used_fallback"] = False
+    except Exception as exc:
+        log_event(logger, "pool_distribution_http_failed", error=str(exc), source_url=pool_distribution_url)
+        source_payload = pool_distribution_browser_provider(url=pool_distribution_url)
+        distribution = parse_pool_distribution_from_rows(source_payload.rows, source_payload.source_url)
+        result["used_fallback"] = True
+        log_event(
+            logger,
+            "pool_distribution_browser_fallback_used",
+            source_kind=source_payload.source_kind,
+            source_url=pool_distribution_url,
+        )
+    try:
         result.update(
             {
                 "checked": True,
