@@ -4,6 +4,7 @@ on:
   schedule:
     - cron: "*/30 * * * *"
   workflow_dispatch:
+    inputs:
       delay_seconds:
         description: "Delay before running the check"
         required: false
