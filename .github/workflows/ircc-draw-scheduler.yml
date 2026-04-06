@@ -90,6 +90,27 @@ jobs:
             rm -f state/ircc_draw_state.json.tmp state/ircc_draw_state.json
             echo "No previous scheduler state found"
           fi
+          if git show scheduler-state:state/ircc_draw.log.jsonl > state/ircc_draw.log.jsonl.tmp 2>/dev/null; then
+            mv state/ircc_draw.log.jsonl.tmp state/ircc_draw.log.jsonl
+            echo "Restored scheduler event log from scheduler-state branch"
+          else
+            rm -f state/ircc_draw.log.jsonl.tmp state/ircc_draw.log.jsonl
+            echo "No previous scheduler event log found"
+          fi
+          if git show scheduler-state:state/latest_run_summary.json > state/latest_run_summary.json.tmp 2>/dev/null; then
+            mv state/latest_run_summary.json.tmp state/latest_run_summary.json
+            echo "Restored latest run summary from scheduler-state branch"
+          else
+            rm -f state/latest_run_summary.json.tmp state/latest_run_summary.json
+            echo "No previous latest run summary found"
+          fi
+          if git show scheduler-state:state/run_history.jsonl > state/run_history.jsonl.tmp 2>/dev/null; then
+            mv state/run_history.jsonl.tmp state/run_history.jsonl
+            echo "Restored run history from scheduler-state branch"
+          else
+            rm -f state/run_history.jsonl.tmp state/run_history.jsonl
+            echo "No previous run history found"
+          fi
 
       - name: Run scheduler
         if: steps.schedule_window.outputs.should_run == 'true'
