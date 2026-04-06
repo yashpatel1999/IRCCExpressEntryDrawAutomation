@@ -8,11 +8,11 @@ on:
       html_file:
         description: "Relative path to a committed HTML fixture"
         required: false
-        default: ""
+        default: "Test.html"
       delay_seconds:
         description: "Delay before running the check"
         required: false
-        default: "0"
+        default: "30"
 
 permissions:
   contents: write
@@ -93,3 +93,12 @@ jobs:
               git push --force origin scheduler-state
             fi
           fi
+
+      - name: Upload scheduler logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ircc-scheduler-state
+          path: |
+            state/ircc_draw_state.json
+            state/ircc_draw.log.jsonl
