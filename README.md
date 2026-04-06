@@ -1,333 +1,270 @@
-# IRCC Express Entry Draw Notifier
+# IRCC Express Entry Notifier
 
-This project is a starter architecture for monitoring the IRCC Express Entry rounds page and notifying you on iPhone when a **new draw** is published.
+This project monitors two IRCC pages and sends iPhone push notifications through `ntfy`:
 
-Target page:
-- https://www.canada.ca/en/immigration-refugees-citizenship/corporate/mandate/policies-operational-instructions-agreements/ministerial-instructions/express-entry-rounds.html
+- Express Entry draw updates  
+  `https://www.canada.ca/en/immigration-refugees-citizenship/corporate/mandate/policies-operational-instructions-agreements/ministerial-instructions/express-entry-rounds.html`
+- CRS pool distribution updates  
+  `https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/express-entry/rounds-invitations.html`
 
-## 1) High-level architecture
+The production path is:
+- GitHub Actions scheduler
+- HTTP-first parsing
+- MCP/Playwright browser fallback when HTTP parsing fails
+- JSON state persisted on the `scheduler-state` branch
+- `ntfy` push notifications to iPhone
+
+## Architecture
 
 ```text
-┌────────────────────┐
-│ Scheduler          │  (cron / GitHub Actions / Cloud Scheduler)
-└─────────┬──────────┘
-          │ triggers every X minutes
-┌─────────▼──────────┐
-│ Fetcher            │  (HTTP GET page + normalization)
-└─────────┬──────────┘
-          │ html
-┌─────────▼──────────┐
-│ Parser             │  (extract latest draw ID/date/program/CRS)
-└─────────┬──────────┘
-          │ structured draw object
-┌─────────▼──────────┐
-│ State Store        │  (last_draw_id + hash + sent_at)
-│ (SQLite/Redis/S3)  │
-└──────┬─────┬───────┘
-       │new? │duplicate?
-       │yes  │no action
-┌──────▼─────────────┐
-│ AI Enricher        │  (optional summary, confidence check)
-└─────────┬──────────┘
-          │ message
-┌─────────▼──────────┐
-│ Notifier           │  (ntfy push notifications; Twilio optional)
-└─────────┬──────────┘
-          │ send result
-┌─────────▼──────────┐
-│ Observability      │  (logs, retries, alerts)
-└────────────────────┘
+GitHub Actions Scheduler
+  -> HTTP fetcher
+  -> deterministic parser
+  -> validator
+  -> MCP browser fallback when needed
+  -> state store
+  -> ntfy notifier
+  -> JSON logs + run summaries
 ```
 
-## 2) Suggested modules
+There are two independent monitors in the same run:
+- draw monitor
+- CRS pool distribution monitor
 
-- `src/fetch_ircc_page.py`
-  - Download page and save normalized HTML.
-- `src/parse_latest_draw.py`
-  - Parse the newest draw row/card and output JSON.
-- `src/state_store.py`
-  - Read/write `last_seen_draw_key` and idempotency metadata.
-- `src/notify.py`
-  - Send SMS/WhatsApp via Twilio (or equivalent).
-- `src/main.py`
-  - Orchestrate fetch → parse → compare → notify.
+Each has its own state key, change detection, and notification result.
 
-## 3) Data model (minimal)
-
-## 2.1) Current scaffold
-
-The initial implementation scaffold now lives under:
+## Repo Layout
 
 - `src/ircc_draw_automation/fetcher.py`
-  - Fetches and normalizes the IRCC rounds page through the HTTP provider.
-- `src/ircc_draw_automation/browser_source.py`
-  - Legacy browser-row loader used by the MCP browser adapter.
-- `src/ircc_draw_automation/mcp_browser_source.py`
-  - MCP-branded browser fallback provider for rendered table rows.
+  - HTTP source providers and source URLs.
 - `src/ircc_draw_automation/parser.py`
-  - Extracts the latest draw payload from HTML or normalized row data.
+  - Draw parser and CRS pool distribution parser from HTML or browser rows.
 - `src/ircc_draw_automation/validator.py`
-  - Rejects stale, incomplete, or implausible parsed draws.
+  - Draw validation and confidence checks.
+- `src/ircc_draw_automation/browser_source.py`
+  - Browser row normalization for draw and pool tables.
+- `src/ircc_draw_automation/mcp_client.py`
+  - Python MCP client that spawns the Playwright MCP server.
+- `mcp/playwright_server.mjs`
+  - Playwright MCP server used for live browser fallback.
 - `src/ircc_draw_automation/scheduler.py`
-  - Runs HTTP-first checks with MCP browser fallback and persisted state.
+  - Main orchestration, state update, notifier calls, summaries, heartbeat.
 - `src/ircc_draw_automation/state_store.py`
-  - Stores `last_seen_draw_key` and related run metadata in a local JSON file.
+  - JSON state, event log, latest summary, run history.
+- `src/ircc_draw_automation/notifier.py`
+  - `ntfy`, dry-run, and optional Twilio notifier support.
+- `src/ircc_draw_automation/enricher.py`
+  - Notification message formatting.
 - `src/ircc_draw_automation/main.py`
-  - CLI entrypoint for `check_latest_draw`.
-- `tests/test_parser.py`
-  - Parser tests with HTML and browser-row fixtures.
+  - CLI entrypoint.
 
-## 2.2) Current CLI
+## CLI
 
-Run the default check:
+Set:
 
 ```powershell
 $env:PYTHONPATH='src'
+```
+
+Run the normal check:
+
+```powershell
 python -m ircc_draw_automation.main check_latest_draw
 ```
 
-Force the browser-backed fixture path:
+Dry run:
 
 ```powershell
-$env:PYTHONPATH='src'
-python -m ircc_draw_automation.main check_latest_draw --use-browser --browser-rows-file tests/fixtures/browser_rows_fixture.json --dry-run
-```
-
-Live MCP browser path:
-
-```powershell
-npm install
-npx playwright install chromium
-$env:PYTHONPATH='src'
 python -m ircc_draw_automation.main check_latest_draw --dry-run
 ```
 
-When HTTP parsing is stale or broken, the app now spawns the local MCP browser server in `mcp/playwright_server.mjs`, opens the live IRCC page in Playwright, and extracts the rendered rows.
+Force browser path for draw debugging:
 
-```json
-{
-  "draw_key": "2026-03-20_341",
-  "draw_number": 341,
-  "draw_date": "2026-03-20",
-  "program": "Canadian Experience Class",
-  "invitations": 7500,
-  "crs_cutoff": 515,
-  "tie_breaking": "2026-02-15T14:25:00Z",
-  "source_url": "https://www.canada.ca/.../express-entry-rounds.html",
-  "fetched_at": "2026-04-04T18:30:00Z",
-  "content_hash": "sha256:..."
-}
+```powershell
+python -m ircc_draw_automation.main check_latest_draw --use-browser --browser-rows-file tests/fixtures/browser_rows_fixture.json --dry-run
 ```
 
-`draw_key` should be deterministic and stable. A common strategy:
-- `draw_key = "{draw_date}_{draw_number}"`
+Use local HTML fixtures for manual testing:
 
-## 4) Detection strategy (robust)
-
-Use **2 checks together**:
-1. Primary key check: newest `draw_key` differs from stored value.
-2. Content hash check: normalized latest-draw block hash differs.
-
-This prevents false positives from whitespace/page template changes.
-
-## 5) Notification channels
-
-### iPhone push notifications
-
-Recommended provider: `ntfy`
-
-- Create or choose a topic name, then subscribe to that topic in the iPhone app.
-- Publish alerts to `https://ntfy.sh/<your-topic>` by default.
-- No account is required for the public ntfy service if you use an unguessable topic name.
-
-Example message:
-- `New IRCC Draw #408 (2026-04-02) | Program: Trades Occupations, 2026-Version 3 | ITAs: 3000 | CRS: 477`
-
-### Optional fallback
-
-- Twilio SMS/WhatsApp is still available as a fallback backend if you configure the Twilio environment variables.
-
-## 6) Where MCP server fits
-
-You can place your automation behind an MCP server so AI tools can call your pipeline safely and consistently.
-
-### MCP role in this project
-
-Expose actions as MCP tools:
-- `check_latest_draw`
-- `get_last_seen_draw`
-- `set_last_seen_draw`
-- `send_test_notification`
-- `run_full_check`
-
-This gives you:
-- Standardized tool interface for local/remote agents.
-- Reusable automation from IDE agents, CLI agents, and chat assistants.
-- Easier policy control (what tools can send notifications vs read-only).
-
-### Example MCP tool contract
-
-- `check_latest_draw() -> { latest_draw, changed, reason }`
-- `run_full_check({ dry_run: boolean }) -> { changed, notified, message_id }`
-
-Keep side-effect operations (`notify`) separate from read-only operations for safety.
-
-## 7) Where AI helps (practical, optional)
-
-AI is not required for basic detection, but useful for:
-- **Message enrichment**: convert raw fields into clean human summary.
-- **Parser resilience**: fallback extraction if page layout changes.
-- **Change triage**: determine whether detected change is meaningful draw data.
-- **Explainability**: “Why did I get this alert?” text.
-
-### Recommended pattern
-
-- Rule-based parser first (deterministic, cheap).
-- AI fallback only if parser confidence is low or schema mismatch occurs.
-- Always store parser confidence and raw snippet for audit.
-
-## 8) Reliability checklist
-
-- Idempotent notifications (never alert twice for same `draw_key`).
-- Retry on transient HTTP / provider failures with backoff.
-- Timeout budget (e.g., 8s fetch, 5s notify).
-- Alerting if checks fail N consecutive times.
-- Persist run history for debugging.
-- Unit tests for parser with frozen HTML fixtures.
-
-## 9) Security checklist
-
-- Secrets in env vars / secret manager (`NTFY_TOPIC`, `TWILIO_AUTH_TOKEN`, etc.).
-- No secrets in logs.
-- Validate outbound destination numbers.
-- Signed webhook verification if you later add inbound callbacks.
-
-## 10) Deployment options
-
-- **Fastest**: GitHub Actions on schedule + small state file in artifact or external KV.
-- **Production**: Docker container + Cloud Run / ECS + managed DB (SQLite -> Postgres).
-- **Low-cost**: VPS with cron + SQLite.
-
-## 11) MVP implementation plan
-
-1. Build deterministic parser + test fixtures.
-2. Add state store and duplicate-protection.
-3. Integrate Twilio SMS first.
-4. Add WhatsApp channel.
-5. Add observability and retries.
-6. Add MCP server wrapper around existing functions.
-7. Add optional AI summarization/fallback parsing.
-
-## 12) Success criteria
-
-- Detects a newly posted draw within scheduled interval.
-- Sends exactly one message per unique draw.
-- Can run in `dry_run` for safe testing.
-- Handles temporary website/provider failures without losing state.
-
-## 13) GitHub Actions Scheduler
-
-The repository now includes a scheduled workflow at `.github/workflows/ircc-draw-scheduler.yml`.
-
-- It runs every 30 minutes and supports manual dispatch.
-- It installs Python, Node, Playwright, and the project dependencies.
-- It restores state from a dedicated `scheduler-state` branch if present.
-- It runs the normal scheduler entrypoint with `IRCC_STATE_FILE=state/ircc_draw_state.json`.
-- It publishes updated state back to `scheduler-state` so the next run can compare against the previous draw.
-
-Run expectations:
-
-- HTTP fetch/parser is tried first.
-- MCP browser fallback is used only if the HTTP result is missing, stale, or invalid.
-- The state file is not committed to `main`; it lives in the `scheduler-state` branch only.
-
-## 14) State, Notifier, Observability
-
-### JSON state
-
-The scheduler persists JSON at `IRCC_STATE_FILE` or `.ircc_draw_state.json` by default. The state includes:
-
-- `last_seen_draw_key`
-- `content_hash`
-- `last_checked_at`
-- `last_source_kind`
-- `notifications`
-
-### Notifier
-
-The notifier is now a separate module with three modes:
-
-- `DryRunNotifier`
-  - Used automatically in `--dry-run` runs or when no notifier backend is configured.
-- `NtfyNotifier`
-  - Sends push notifications to the configured ntfy topic when `NTFY_TOPIC` is set.
-- `TwilioNotifier`
-  - Sends SMS/WhatsApp through Twilio when `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_FROM_NUMBER`, and `TWILIO_TO_NUMBER` are present.
-
-The message text is built from the validated draw record:
-
-```text
-New IRCC Draw #408 (2026-04-02) | Program: Trades Occupations, 2026-Version 3 | ITAs: 3000 | CRS: 477
+```powershell
+python -m ircc_draw_automation.main check_latest_draw --draw-html-file "C:\path\to\draw_test.html" --pool-html-file "C:\path\to\pool_test.html" --state-file "state\manual-test-state.json"
 ```
 
-### Observability
+Send a standalone test notification:
 
-Structured JSON logs are emitted for:
+```powershell
+python -m ircc_draw_automation.main send_test_notification --message "IRCC ntfy test alert"
+```
 
-- run start
-- HTTP parse success/failure
-- browser fallback usage
-- state update
-- notification send result
-- workflow outcome in GitHub Actions
+Force notifications even if state is unchanged:
 
-Each run also records a small `state_snapshot` in `run_started` and `run_completed`, including:
+```powershell
+python -m ircc_draw_automation.main check_latest_draw --force-notify
+```
 
-- `last_seen_draw_key`
-- `last_checked_at`
-- `last_source_kind`
-- `notification_count`
+`--force-notify` is intended for manual testing only.
 
-These logs go to stdout, which makes them visible in GitHub Actions and easy to scrape from a VPS or container host.
+## Notification Setup
 
-## 15) ntfy setup
+Recommended notifier: `ntfy`
 
-### If you use the public ntfy service
+Local `.env` keys:
 
-1. Install the ntfy iPhone app from the App Store.
-2. Pick a private topic name, for example `ircc-draw-alert-2c8f4c`.
-3. In the app, subscribe to that topic.
-4. Set `NTFY_TOPIC=ircc-draw-alert-2c8f4c` in `.env`.
-5. Leave `NTFY_SERVER_URL=https://ntfy.sh`.
+```env
+NTFY_SERVER_URL=https://ntfy.sh
+NTFY_TOPIC=your-topic
+NTFY_TITLE=IRCC Express Entry Alert
+NTFY_DRAW_TITLE=IRCC Draw Alert
+NTFY_POOL_TITLE=IRCC Pool Distribution Alert
+NTFY_USERNAME=
+NTFY_PASSWORD=
+NTFY_TOKEN=
+```
 
-No ntfy website account is required for this flow.
+Notes:
+- `NTFY_DRAW_TITLE` overrides the draw notification title.
+- `NTFY_POOL_TITLE` overrides the pool distribution title.
+- If `ntfy` is not configured, the app falls back to dry-run behavior.
 
-### GitHub Actions setup
+Optional Twilio fallback is still supported through:
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+- `TWILIO_FROM_NUMBER`
+- `TWILIO_TO_NUMBER`
 
-If the scheduler runs in GitHub Actions, add these repository secrets:
+## GitHub Actions Production Setup
 
+Workflow:
+- `.github/workflows/ircc-draw-scheduler.yml`
+
+Current production behavior:
+- scheduled on weekdays only
+- checked every 30 minutes
+- only processes during Toronto business hours
+- manual runs are allowed any time
+
+Current scheduled trigger:
+- `*/30 * * * 1-5`
+
+Runtime gate:
+- Monday to Friday
+- `09:00` to `17:59` in `America/Toronto`
+
+GitHub repository secrets required for real iPhone notifications:
 - `NTFY_SERVER_URL`
 - `NTFY_TOPIC`
-- `NTFY_TITLE`  
+- `NTFY_TITLE`
+- `NTFY_DRAW_TITLE`
+- `NTFY_POOL_TITLE`
 
-For the public ntfy service, set:
+Optional if your ntfy server needs auth:
+- `NTFY_USERNAME`
+- `NTFY_PASSWORD`
+- `NTFY_TOKEN`
 
-- `NTFY_SERVER_URL = https://ntfy.sh`
-- `NTFY_TOPIC = your-private-topic`
-- `NTFY_TITLE = IRCC Express Entry Draw Alert`
+Important:
+- Create each of these as a separate repository secret.
+- Do not combine them into one multi-line secret.
 
-### If you self-host ntfy later
+## MCP Fallback
 
-- Set `NTFY_SERVER_URL` to your server.
-- Configure auth and ACLs on the server before publishing alerts.
-- Keep the topic private and unguessable.
+Both monitors use the same pattern:
+- try HTTP first
+- if parse fails or data is incomplete, use MCP browser fallback
 
-## 16) Log file
+The MCP server:
+- is implemented in `mcp/playwright_server.mjs`
+- is launched by the Python scheduler during the run
+- runs inside GitHub Actions for production
 
-Each scheduler run now appends structured JSON events to the file configured by `IRCC_LOG_FILE`.
+Current fallback behavior:
+- draw monitor: HTTP first, MCP fallback
+- pool distribution monitor: HTTP first, MCP fallback
 
-- Local runs can use a path like `state/ircc_draw.log.jsonl`
-- GitHub Actions uses the same path and publishes it with scheduler state
-- GitHub Actions also uploads the state and log files as an artifact named `ircc-scheduler-state`
+## State and Logs
 
-This gives you a durable run history for debugging after the fact.
+Runtime state is not stored on `main`. It is stored on the `scheduler-state` branch.
+
+Files:
+- `state/ircc_draw_state.json`
+  - persisted scheduler state
+- `state/ircc_draw.log.jsonl`
+  - detailed event log, appended across runs
+- `state/latest_run_summary.json`
+  - one readable summary for the latest run
+- `state/run_history.jsonl`
+  - one summary line per run, appended across runs
+
+Artifacts:
+- GitHub Actions also uploads these files as `ircc-scheduler-state`
+
+## What Gets Logged
+
+Examples of event log entries:
+- `run_started`
+- `http_parse_valid`
+- `http_failed`
+- `browser_fallback_used`
+- `draw_comparison_complete`
+- `notification_sent`
+- `notification_skipped`
+- `pool_distribution_checked`
+- `pool_distribution_notification_sent`
+- `workflow_run_outcome`
+
+`run_started` also logs notifier diagnostics, including:
+- selected provider
+- whether ntfy is configured
+- whether the ntfy topic is present
+
+## Heartbeat
+
+Each run summary includes:
+- `expected_interval_minutes`
+- `previous_checked_at`
+- `observed_gap_minutes`
+- `missed_schedule_suspected`
+
+This helps detect delayed or skipped GitHub scheduled runs.
+
+## Manual End-to-End Test in GitHub
+
+1. Add the repository secrets listed above.
+2. Open `Actions` -> `IRCC Draw Scheduler`.
+3. Click `Run workflow`.
+4. Set:
+   - `delay_seconds = 0`
+   - `force_notify = true`
+5. Start the run.
+
+Expected:
+- draw notification is sent even if draw state is unchanged
+- pool notification is sent even if pool state is unchanged
+- logs and summaries are updated in `scheduler-state`
+
+## Pool Distribution Notification Format
+
+Pool notifications include row highlights, for example:
+
+```text
+IRCC CRS pool distribution updated (date unavailable) | Total candidates: unknown | 601-1200: 351 | 501-600: 11648 | 451-500: 73445
+```
+
+If the browser fallback cannot recover the table date or total, the row details are still included.
+
+## Reliability Notes
+
+- Notifications are idempotent by state key unless `--force-notify` is used.
+- Draw and pool distribution state are tracked independently.
+- Notification failures do not destroy state.
+- Historical run files are restored before each GitHub run so logs and summaries accumulate.
+
+## Current Status
+
+The current implementation supports:
+- real ntfy notifications from GitHub Actions
+- MCP fallback in production
+- business-hours weekday scheduling
+- force-notify manual tests
+- persisted state and historical summaries
+- local HTML fixture testing
