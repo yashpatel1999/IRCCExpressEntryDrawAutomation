@@ -99,6 +99,14 @@ def run_check(
     change_status = "new_draw_detected" if changed else "draw_already_seen"
     state_updated = False
     diagnostics["source_diagnostics"] = source_payload.diagnostics
+    log_event(
+        logger,
+        "draw_comparison_complete",
+        draw_key=latest_draw.draw_key,
+        change_status=change_status,
+        changed=changed,
+        source_kind=source_payload.source_kind,
+    )
 
     if not dry_run:
         state_store.write_state(
@@ -130,6 +138,23 @@ def run_check(
                     "reason": notification_result.reason,
                 }
             )
+    elif not changed:
+        log_event(logger, "notification_skipped", reason="draw_unchanged", draw_key=latest_draw.draw_key)
+    elif dry_run:
+        log_event(logger, "notification_skipped", reason="dry_run", draw_key=latest_draw.draw_key)
+    else:
+        log_event(logger, "notification_skipped", reason="validation_failed", draw_key=latest_draw.draw_key)
+
+    log_event(
+        logger,
+        "run_completed",
+        draw_key=latest_draw.draw_key,
+        changed=changed,
+        state_updated=state_updated,
+        notification_sent=bool(notification_result and notification_result.sent),
+        source_kind=source_payload.source_kind,
+        change_status=change_status,
+    )
 
     return SchedulerRunResult(
         latest_draw=latest_draw,
