@@ -29,8 +29,22 @@ def run_check(
     logger = logger or get_logger()
     state_store = JsonStateStore(state_file)
     current_state = state_store.read_state()
+    state_snapshot = {
+        "last_seen_draw_key": current_state.get("last_seen_draw_key"),
+        "last_checked_at": current_state.get("last_checked_at"),
+        "last_source_kind": current_state.get("last_source_kind"),
+        "notification_count": len(current_state.get("notifications", [])),
+    }
     diagnostics = {"state_file": state_store.path}
-    log_event(logger, "run_started", source_url=source_url, state_file=state_store.path, dry_run=dry_run, use_browser=use_browser)
+    log_event(
+        logger,
+        "run_started",
+        source_url=source_url,
+        state_file=state_store.path,
+        dry_run=dry_run,
+        use_browser=use_browser,
+        state_snapshot=state_snapshot,
+    )
 
     if use_browser:
         source_payload = browser_provider(url=source_url, fixture_path=browser_rows_file)
@@ -134,6 +148,7 @@ def run_check(
         notification_sent=bool(notification_result and notification_result.sent),
         source_kind=source_payload.source_kind,
         change_status=change_status,
+        state_snapshot=state_snapshot,
     )
 
     return SchedulerRunResult(

@@ -279,6 +279,14 @@ Structured JSON logs are emitted for:
 - browser fallback usage
 - state update
 - notification send result
+- workflow outcome in GitHub Actions
+
+Each run also records a small `state_snapshot` in `run_started` and `run_completed`, including:
+
+- `last_seen_draw_key`
+- `last_checked_at`
+- `last_source_kind`
+- `notification_count`
 
 These logs go to stdout, which makes them visible in GitHub Actions and easy to scrape from a VPS or container host.
 

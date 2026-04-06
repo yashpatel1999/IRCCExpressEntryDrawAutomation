@@ -16,6 +16,7 @@ permissions:
 jobs:
   check-draw:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     steps:
       - name: Checkout main
@@ -55,6 +56,8 @@ jobs:
           fi
 
       - name: Run scheduler
+        id: run_scheduler
+        continue-on-error: true
         env:
           PYTHONPATH: src
           IRCC_STATE_FILE: state/ircc_draw_state.json
@@ -68,7 +71,35 @@ jobs:
           fi
           python -m ircc_draw_automation.main check_latest_draw
 
+      - name: Record workflow outcome
+        if: always()
+        env:
+          IRCC_LOG_FILE: state/ircc_draw.log.jsonl
+          GITHUB_SHA: ${{ github.sha }}
+          GITHUB_RUN_ID: ${{ github.run_id }}
+          GITHUB_RUN_ATTEMPT: ${{ github.run_attempt }}
+          RUN_OUTCOME: ${{ steps.run_scheduler.outcome }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          log_file = Path(os.environ["IRCC_LOG_FILE"])
+          log_file.parent.mkdir(parents=True, exist_ok=True)
+          payload = {
+              "event": "workflow_run_outcome",
+              "run_outcome": os.environ.get("RUN_OUTCOME", "unknown"),
+              "commit_sha": os.environ.get("GITHUB_SHA"),
+              "workflow_run_id": os.environ.get("GITHUB_RUN_ID"),
+              "workflow_run_attempt": os.environ.get("GITHUB_RUN_ATTEMPT"),
+          }
+          with log_file.open("a", encoding="utf-8") as handle:
+              handle.write(json.dumps(payload, sort_keys=True) + "\n")
+          PY
+
       - name: Publish updated state branch
+        if: always()
         run: |
           if [ -f state/ircc_draw_state.json ] || [ -f state/ircc_draw.log.jsonl ]; then
             git checkout -B scheduler-state
@@ -94,3 +125,7 @@ jobs:
           path: |
             state/ircc_draw_state.json
             state/ircc_draw.log.jsonl
+
+      - name: Fail workflow if scheduler failed
+        if: steps.run_scheduler.outcome == 'failure'
+        run: exit 1
