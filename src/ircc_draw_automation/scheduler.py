@@ -7,7 +7,7 @@ from ircc_draw_automation.fetcher import DEFAULT_POOL_DISTRIBUTION_URL, DEFAULT_
 from ircc_draw_automation.models import SchedulerRunResult, SourcePayload, utc_now_iso
 from ircc_draw_automation.mcp_browser_source import fetch_browser_source
 from ircc_draw_automation.browser_source import fetch_pool_distribution_browser_source
-from ircc_draw_automation.notifier import NotificationResult, build_default_notifier
+from ircc_draw_automation.notifier import NotificationResult, build_default_notifier, get_notification_title
 from ircc_draw_automation.observability import get_logger, log_event
 from ircc_draw_automation.parser import parse_latest_draw_from_html, parse_latest_draw_from_rows, parse_pool_distribution_from_html, parse_pool_distribution_from_rows
 from ircc_draw_automation.state_store import JsonStateStore
@@ -136,7 +136,7 @@ def run_check(
     if should_notify and not dry_run:
         message = build_message(latest_draw)
         try:
-            notification_result = notifier.send(message)
+            notification_result = _send_notification(notifier, message, get_notification_title("draw"))
         except Exception as exc:
             notification_result = NotificationResult(
                 False,
@@ -306,7 +306,11 @@ def _run_pool_distribution_check(pool_distribution_url, pool_distribution_provid
         if should_notify and not dry_run:
             message = build_pool_distribution_message(distribution)
             try:
-                notification_result = notifier.send(message)
+                notification_result = _send_notification(
+                    notifier,
+                    message,
+                    get_notification_title("pool_distribution"),
+                )
             except Exception as exc:
                 notification_result = NotificationResult(
                     False,
@@ -387,3 +391,10 @@ def _build_heartbeat(previous_checked_at, started_at):
 
 def _parse_utc_iso(value):
     return datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ")
+
+
+def _send_notification(notifier, message, title):
+    try:
+        return notifier.send(message, title=title)
+    except TypeError:
+        return notifier.send(message)

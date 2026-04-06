@@ -3,7 +3,7 @@ from contextlib import contextmanager
 import os
 from unittest.mock import Mock, patch
 
-from ircc_draw_automation.notifier import DryRunNotifier, NtfyNotifier, TwilioNotifier, build_default_notifier
+from ircc_draw_automation.notifier import DryRunNotifier, NtfyNotifier, TwilioNotifier, build_default_notifier, get_notification_title
 
 
 class NotifierTests(unittest.TestCase):
@@ -68,3 +68,17 @@ class NotifierTests(unittest.TestCase):
         with self._temporary_env():
             notifier = build_default_notifier(dry_run=False)
             self.assertIsInstance(notifier, DryRunNotifier)
+
+    def test_event_specific_ntfy_titles_fall_back_to_base_title(self):
+        with self._temporary_env(NTFY_TITLE="Base Title"):
+            self.assertEqual(get_notification_title("draw"), "Base Title")
+            self.assertEqual(get_notification_title("pool_distribution"), "Base Title")
+
+    def test_event_specific_ntfy_titles_override_base_title(self):
+        with self._temporary_env(
+            NTFY_TITLE="Base Title",
+            NTFY_DRAW_TITLE="Draw Title",
+            NTFY_POOL_TITLE="Pool Title",
+        ):
+            self.assertEqual(get_notification_title("draw"), "Draw Title")
+            self.assertEqual(get_notification_title("pool_distribution"), "Pool Title")

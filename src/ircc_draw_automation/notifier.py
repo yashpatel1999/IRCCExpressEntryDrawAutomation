@@ -27,12 +27,12 @@ class NotificationResult:
 
 
 class Notifier(object):
-    def send(self, message):
+    def send(self, message, title=None):
         raise NotImplementedError
 
 
 class DryRunNotifier(Notifier):
-    def send(self, message):
+    def send(self, message, title=None):
         return NotificationResult(True, "dry_run", message, reason="dry_run")
 
 
@@ -56,16 +56,16 @@ class NtfyNotifier(Notifier):
     def configured(self):
         return bool(self.server_url and self.topic)
 
-    def _build_headers(self):
+    def _build_headers(self, title=None):
         headers = {
-            "Title": self.title,
+            "Title": (title or self.title),
             "Priority": "4",
         }
         if self.token:
             headers["Authorization"] = "Bearer %s" % self.token
         return headers
 
-    def send(self, message):
+    def send(self, message, title=None):
         if not self.configured():
             return NotificationResult(False, "ntfy", message, reason="ntfy_not_configured")
 
@@ -76,7 +76,7 @@ class NtfyNotifier(Notifier):
         response = requests.post(
             url,
             data=message.encode("utf-8"),
-            headers=self._build_headers(),
+            headers=self._build_headers(title=title),
             auth=auth,
             timeout=20,
         )
@@ -108,7 +108,7 @@ class TwilioNotifier(Notifier):
     def configured(self):
         return all([self.account_sid, self.auth_token, self.from_number, self.to_number])
 
-    def send(self, message):
+    def send(self, message, title=None):
         if not self.configured():
             return NotificationResult(False, "twilio", message, reason="twilio_not_configured")
 
@@ -142,3 +142,10 @@ def build_default_notifier(dry_run=False):
     if dry_run or not notifier.configured():
         notifier = DryRunNotifier()
     return notifier
+
+
+def get_notification_title(event_type):
+    base_title = (os.environ.get("NTFY_TITLE") or "IRCC Express Entry Draw Alert").strip()
+    if event_type == "pool_distribution":
+        return (os.environ.get("NTFY_POOL_TITLE") or base_title).strip()
+    return (os.environ.get("NTFY_DRAW_TITLE") or base_title).strip()
