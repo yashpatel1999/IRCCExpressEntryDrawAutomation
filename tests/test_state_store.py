@@ -15,6 +15,18 @@ class StateStoreTests(unittest.TestCase):
             self.assertIsNone(state["last_seen_draw_key"])
             self.assertEqual(state["notifications"], [])
 
+    def test_read_state_returns_defaults_when_file_is_empty(self):
+        with tempfile.TemporaryDirectory() as tempdir:
+            path = os.path.join(tempdir, "state.json")
+            with open(path, "w", encoding="utf-8") as handle:
+                handle.write("")
+
+            store = JsonStateStore(path)
+            state = store.read_state()
+
+            self.assertIsNone(state["last_seen_draw_key"])
+            self.assertEqual(state["notifications"], [])
+
     def test_append_notification_persists_history(self):
         with tempfile.TemporaryDirectory() as tempdir:
             path = os.path.join(tempdir, "state.json")

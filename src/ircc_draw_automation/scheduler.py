@@ -3,7 +3,7 @@ from ircc_draw_automation.config import load_dotenv_file
 from ircc_draw_automation.fetcher import DEFAULT_SOURCE_URL, fetch_http_source
 from ircc_draw_automation.models import SchedulerRunResult, SourcePayload, utc_now_iso
 from ircc_draw_automation.mcp_browser_source import fetch_browser_source
-from ircc_draw_automation.notifier import build_default_notifier
+from ircc_draw_automation.notifier import NotificationResult, build_default_notifier
 from ircc_draw_automation.observability import get_logger, log_event
 from ircc_draw_automation.parser import parse_latest_draw_from_html, parse_latest_draw_from_rows
 from ircc_draw_automation.state_store import JsonStateStore
@@ -31,6 +31,7 @@ def run_check(
     current_state = state_store.read_state()
     state_snapshot = {
         "last_seen_draw_key": current_state.get("last_seen_draw_key"),
+        "last_notified_draw_key": current_state.get("last_notified_draw_key"),
         "last_checked_at": current_state.get("last_checked_at"),
         "last_source_kind": current_state.get("last_source_kind"),
         "notification_count": len(current_state.get("notifications", [])),
@@ -106,6 +107,7 @@ def run_check(
         state_store.write_state(
             {
                 "last_seen_draw_key": latest_draw.draw_key,
+                "last_notified_draw_key": current_state.get("last_notified_draw_key"),
                 "content_hash": latest_draw.content_hash,
                 "last_checked_at": utc_now_iso(),
                 "last_source_kind": source_payload.source_kind,
@@ -116,13 +118,21 @@ def run_check(
         log_event(logger, "state_updated", draw_key=latest_draw.draw_key, source_kind=source_payload.source_kind)
 
     notification_result = None
-    should_notify = changed and validation.is_valid
+    should_notify = validation.is_valid and latest_draw.draw_key != current_state.get("last_notified_draw_key")
     if should_notify and not dry_run:
         message = build_message(latest_draw)
-        notification_result = notifier.send(message)
+        try:
+            notification_result = notifier.send(message)
+        except Exception as exc:
+            notification_result = NotificationResult(
+                False,
+                getattr(notifier, "__class__", type("Notifier", (), {})).__name__.lower(),
+                message,
+                reason="exception:%s" % exc,
+            )
         diagnostics["notification"] = notification_result.to_dict()
         log_event(logger, "notification_sent" if notification_result.sent else "notification_failed", notification=notification_result.to_dict())
-        if notification_result.sent and not dry_run:
+        if notification_result.sent:
             state_store.append_notification(
                 {
                     "draw_key": latest_draw.draw_key,
@@ -132,12 +142,27 @@ def run_check(
                     "reason": notification_result.reason,
                 }
             )
-    elif not changed:
+            state_store.write_state(
+                {
+                    "last_seen_draw_key": latest_draw.draw_key,
+                    "last_notified_draw_key": latest_draw.draw_key,
+                    "content_hash": latest_draw.content_hash,
+                    "last_checked_at": utc_now_iso(),
+                    "last_source_kind": source_payload.source_kind,
+                    "notifications": state_store.read_state().get("notifications", []),
+                }
+            )
+    elif not changed and latest_draw.draw_key == current_state.get("last_notified_draw_key"):
         log_event(logger, "notification_skipped", reason="draw_unchanged", draw_key=latest_draw.draw_key)
     elif dry_run:
         log_event(logger, "notification_skipped", reason="dry_run", draw_key=latest_draw.draw_key)
     else:
-        log_event(logger, "notification_skipped", reason="validation_failed", draw_key=latest_draw.draw_key)
+        log_event(
+            logger,
+            "notification_skipped",
+            reason="validation_failed" if not validation.is_valid else "already_notified",
+            draw_key=latest_draw.draw_key,
+        )
 
     log_event(
         logger,

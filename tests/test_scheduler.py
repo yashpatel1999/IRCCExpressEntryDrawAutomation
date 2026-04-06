@@ -1,6 +1,7 @@
 import os
 import tempfile
 import unittest
+import json
 
 from ircc_draw_automation.browser_source import fetch_browser_source
 from ircc_draw_automation.models import SourcePayload
@@ -275,3 +276,56 @@ class SchedulerTests(unittest.TestCase):
 
         self.assertEqual(calls, [])
         self.assertIsNone(result.notification_result)
+
+    def test_notification_exception_does_not_fail_run_and_can_retry(self):
+        def http_provider(url):
+            return SourcePayload(
+                source_kind="http",
+                source_url=url,
+                fetched_at="2026-04-05T00:00:00Z",
+                html=HTML_FIXTURE,
+                rows=None,
+                diagnostics={"status_code": 200},
+            )
+
+        class FailingNotifier(object):
+            def send(self, message):
+                raise RuntimeError("ntfy down")
+
+        class SuccessNotifier(object):
+            def send(self, message):
+                return NotificationResult(True, "dry_run", message, reason="dry_run")
+
+        first_result = run_check(
+            state_file=self.state_file,
+            dry_run=False,
+            http_provider=http_provider,
+            browser_provider=None,
+            notifier=FailingNotifier(),
+        )
+
+        self.assertTrue(first_result.state_updated)
+        self.assertIsNotNone(first_result.notification_result)
+        self.assertFalse(first_result.notification_result.sent)
+
+        with open(self.state_file, "r", encoding="utf-8") as handle:
+            first_state = json.load(handle)
+
+        self.assertEqual(first_state["last_seen_draw_key"], "2026-04-02_408")
+        self.assertIsNone(first_state["last_notified_draw_key"])
+
+        second_result = run_check(
+            state_file=self.state_file,
+            dry_run=False,
+            http_provider=http_provider,
+            browser_provider=None,
+            notifier=SuccessNotifier(),
+        )
+
+        self.assertFalse(second_result.changed)
+        self.assertTrue(second_result.notification_result.sent)
+
+        with open(self.state_file, "r", encoding="utf-8") as handle:
+            second_state = json.load(handle)
+
+        self.assertEqual(second_state["last_notified_draw_key"], "2026-04-02_408")
