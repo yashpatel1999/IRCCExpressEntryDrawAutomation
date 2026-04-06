@@ -1,3 +1,6 @@
+import os
+from datetime import datetime
+
 from ircc_draw_automation.enricher import build_message
 from ircc_draw_automation.config import load_dotenv_file
 from ircc_draw_automation.fetcher import DEFAULT_SOURCE_URL, fetch_http_source
@@ -178,9 +181,16 @@ def run_check(
     )
 
     completed_at = utc_now_iso()
+    heartbeat = _build_heartbeat(
+        previous_checked_at=current_state.get("last_checked_at"),
+        started_at=started_at,
+    )
     summary = {
         "started_at": started_at,
         "completed_at": completed_at,
+        "workflow_run_id": os.environ.get("GITHUB_RUN_ID"),
+        "workflow_run_attempt": os.environ.get("GITHUB_RUN_ATTEMPT"),
+        "commit_sha": os.environ.get("GITHUB_SHA"),
         "reason": reason,
         "change_status": change_status,
         "changed": changed,
@@ -197,6 +207,7 @@ def run_check(
         "state_snapshot_before": state_snapshot,
         "validation": diagnostics.get("validation"),
         "source_diagnostics": diagnostics.get("source_diagnostics"),
+        "heartbeat": heartbeat,
     }
     state_store.write_latest_run_summary(summary)
     state_store.append_run_history(summary)
@@ -212,3 +223,31 @@ def run_check(
         notification_result=notification_result,
         diagnostics=diagnostics,
     )
+
+
+def _build_heartbeat(previous_checked_at, started_at):
+    expected_interval_minutes = 30
+    heartbeat = {
+        "expected_interval_minutes": expected_interval_minutes,
+        "previous_checked_at": previous_checked_at,
+        "observed_gap_minutes": None,
+        "missed_schedule_suspected": False,
+    }
+    if not previous_checked_at:
+        return heartbeat
+
+    try:
+        previous_dt = _parse_utc_iso(previous_checked_at)
+        started_dt = _parse_utc_iso(started_at)
+    except ValueError:
+        heartbeat["parse_error"] = True
+        return heartbeat
+
+    observed_gap_minutes = round((started_dt - previous_dt).total_seconds() / 60.0, 2)
+    heartbeat["observed_gap_minutes"] = observed_gap_minutes
+    heartbeat["missed_schedule_suspected"] = observed_gap_minutes > (expected_interval_minutes * 1.5)
+    return heartbeat
+
+
+def _parse_utc_iso(value):
+    return datetime.strptime(value, "%Y-%m-%dT%H:%M:%SZ")

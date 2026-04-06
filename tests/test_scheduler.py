@@ -366,4 +366,46 @@ class SchedulerTests(unittest.TestCase):
         self.assertEqual(summary["draw_key"], result.latest_draw.draw_key)
         self.assertEqual(summary["source_kind"], "http")
         self.assertTrue(summary["notification_sent"])
+        self.assertEqual(summary["heartbeat"]["expected_interval_minutes"], 30)
+        self.assertFalse(summary["heartbeat"]["missed_schedule_suspected"])
         self.assertEqual(len(history_lines), 1)
+
+    def test_run_summary_marks_large_gap_as_possible_missed_schedule(self):
+        existing_state = {
+            "last_seen_draw_key": "2026-04-02_408",
+            "last_notified_draw_key": "2026-04-02_408",
+            "content_hash": "hash",
+            "last_checked_at": "2026-04-05T00:00:00Z",
+            "last_source_kind": "http",
+            "notifications": [],
+        }
+        with open(self.state_file, "w", encoding="utf-8") as handle:
+            json.dump(existing_state, handle)
+
+        def http_provider(url):
+            return SourcePayload(
+                source_kind="http",
+                source_url=url,
+                fetched_at="2026-04-05T00:00:00Z",
+                html=HTML_FIXTURE,
+                rows=None,
+                diagnostics={"status_code": 200},
+            )
+
+        class DummyNotifier(object):
+            def send(self, message):
+                return NotificationResult(True, "dry_run", message, reason="dry_run")
+
+        run_check(
+            state_file=self.state_file,
+            dry_run=False,
+            http_provider=http_provider,
+            browser_provider=None,
+            notifier=DummyNotifier(),
+        )
+
+        summary_path = os.path.join(self.tempdir.name, "latest_run_summary.json")
+        with open(summary_path, "r", encoding="utf-8") as handle:
+            summary = json.load(handle)
+
+        self.assertTrue(summary["heartbeat"]["missed_schedule_suspected"])
