@@ -3,7 +3,7 @@ from contextlib import contextmanager
 import os
 from unittest.mock import Mock, patch
 
-from ircc_draw_automation.notifier import DryRunNotifier, NtfyNotifier, TwilioNotifier, build_default_notifier, get_notification_title
+from ircc_draw_automation.notifier import DryRunNotifier, NtfyNotifier, TwilioNotifier, build_default_notifier, describe_notifier_config, get_notification_title
 
 
 class NotifierTests(unittest.TestCase):
@@ -82,3 +82,17 @@ class NotifierTests(unittest.TestCase):
         ):
             self.assertEqual(get_notification_title("draw"), "Draw Title")
             self.assertEqual(get_notification_title("pool_distribution"), "Pool Title")
+
+    def test_describe_notifier_config_reports_dry_run_when_ntfy_missing(self):
+        with self._temporary_env():
+            payload = describe_notifier_config(dry_run=False)
+            self.assertEqual(payload["selected_provider"], "dry_run")
+            self.assertFalse(payload["ntfy_configured"])
+            self.assertFalse(payload["ntfy_topic_present"])
+
+    def test_describe_notifier_config_reports_ntfy_when_configured(self):
+        with self._temporary_env(NTFY_SERVER_URL="https://ntfy.sh", NTFY_TOPIC="topic"):
+            payload = describe_notifier_config(dry_run=False)
+            self.assertEqual(payload["selected_provider"], "ntfy")
+            self.assertTrue(payload["ntfy_configured"])
+            self.assertTrue(payload["ntfy_topic_present"])

@@ -144,8 +144,32 @@ def build_default_notifier(dry_run=False):
     return notifier
 
 
+def describe_notifier_config(dry_run=False):
+    ntfy_notifier = NtfyNotifier()
+    twilio_notifier = TwilioNotifier()
+    selected = build_default_notifier(dry_run=dry_run)
+    return {
+        "selected_provider": _provider_name(selected),
+        "dry_run": dry_run,
+        "ntfy_configured": ntfy_notifier.configured(),
+        "ntfy_server_url": ntfy_notifier.server_url,
+        "ntfy_topic_present": bool(ntfy_notifier.topic),
+        "twilio_configured": twilio_notifier.configured(),
+    }
+
+
 def get_notification_title(event_type):
     base_title = (os.environ.get("NTFY_TITLE") or "IRCC Express Entry Draw Alert").strip()
     if event_type == "pool_distribution":
         return (os.environ.get("NTFY_POOL_TITLE") or base_title).strip()
     return (os.environ.get("NTFY_DRAW_TITLE") or base_title).strip()
+
+
+def _provider_name(notifier):
+    if isinstance(notifier, NtfyNotifier):
+        return "ntfy"
+    if isinstance(notifier, TwilioNotifier):
+        return "twilio"
+    if isinstance(notifier, DryRunNotifier):
+        return "dry_run"
+    return notifier.__class__.__name__.lower()
