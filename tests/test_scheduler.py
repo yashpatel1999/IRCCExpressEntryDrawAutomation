@@ -87,6 +87,32 @@ STALE_HTML_FIXTURE = """
 """
 
 
+POOL_DISTRIBUTION_HTML = """
+<html>
+  <body>
+    <main>
+      <details open>
+        <summary>CRS score distribution of candidates in the pool as of March 29, 2026</summary>
+        <table>
+          <thead>
+            <tr>
+              <th>CRS score range</th>
+              <th>Number of candidates</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>601-1200</td><td>351</td></tr>
+            <tr><td>501-600</td><td>11,648</td></tr>
+            <tr><td>Total</td><td>230,186</td></tr>
+          </tbody>
+        </table>
+      </details>
+    </main>
+  </body>
+</html>
+"""
+
+
 class SchedulerTests(unittest.TestCase):
     def setUp(self):
         self.tempdir = tempfile.TemporaryDirectory()
@@ -95,6 +121,16 @@ class SchedulerTests(unittest.TestCase):
 
     def tearDown(self):
         self.tempdir.cleanup()
+
+    def _pool_distribution_provider(self, url):
+        return SourcePayload(
+            source_kind="http",
+            source_url=url,
+            fetched_at="2026-04-05T00:00:00Z",
+            html=POOL_DISTRIBUTION_HTML,
+            rows=None,
+            diagnostics={"status_code": 200},
+        )
 
     def test_http_success_does_not_invoke_browser_provider(self):
         def http_provider(url):
@@ -115,6 +151,7 @@ class SchedulerTests(unittest.TestCase):
             dry_run=True,
             http_provider=http_provider,
             browser_provider=browser_provider,
+            pool_distribution_provider=self._pool_distribution_provider,
         )
 
         self.assertEqual(result.reason, "http_primary_success")
@@ -134,6 +171,7 @@ class SchedulerTests(unittest.TestCase):
             dry_run=True,
             http_provider=http_provider,
             browser_provider=browser_provider,
+            pool_distribution_provider=self._pool_distribution_provider,
         )
 
         self.assertEqual(result.reason, "http_failed_browser_used")
@@ -160,6 +198,7 @@ class SchedulerTests(unittest.TestCase):
             dry_run=True,
             http_provider=http_provider,
             browser_provider=browser_provider,
+            pool_distribution_provider=self._pool_distribution_provider,
         )
 
         self.assertEqual(result.reason, "http_failed_browser_used")
@@ -184,6 +223,7 @@ class SchedulerTests(unittest.TestCase):
             dry_run=True,
             http_provider=http_provider,
             browser_provider=browser_provider,
+            pool_distribution_provider=self._pool_distribution_provider,
         )
 
         self.assertEqual(result.reason, "http_parse_low_confidence_browser_used")
@@ -211,6 +251,7 @@ class SchedulerTests(unittest.TestCase):
             dry_run=False,
             http_provider=http_provider,
             browser_provider=None,
+            pool_distribution_provider=self._pool_distribution_provider,
             notifier=DummyNotifier(),
         )
         second_result = run_check(
@@ -218,6 +259,7 @@ class SchedulerTests(unittest.TestCase):
             dry_run=False,
             http_provider=http_provider,
             browser_provider=None,
+            pool_distribution_provider=self._pool_distribution_provider,
             notifier=DummyNotifier(),
         )
 
@@ -244,6 +286,7 @@ class SchedulerTests(unittest.TestCase):
             dry_run=True,
             http_provider=http_provider,
             browser_provider=None,
+            pool_distribution_provider=self._pool_distribution_provider,
         )
 
         self.assertFalse(result.state_updated)
@@ -273,6 +316,7 @@ class SchedulerTests(unittest.TestCase):
             dry_run=True,
             http_provider=http_provider,
             browser_provider=None,
+            pool_distribution_provider=self._pool_distribution_provider,
             notifier=DummyNotifier(),
         )
 
@@ -303,6 +347,7 @@ class SchedulerTests(unittest.TestCase):
             dry_run=False,
             http_provider=http_provider,
             browser_provider=None,
+            pool_distribution_provider=self._pool_distribution_provider,
             notifier=FailingNotifier(),
         )
 
@@ -321,6 +366,7 @@ class SchedulerTests(unittest.TestCase):
             dry_run=False,
             http_provider=http_provider,
             browser_provider=None,
+            pool_distribution_provider=self._pool_distribution_provider,
             notifier=SuccessNotifier(),
         )
 
@@ -352,6 +398,7 @@ class SchedulerTests(unittest.TestCase):
             dry_run=False,
             http_provider=http_provider,
             browser_provider=None,
+            pool_distribution_provider=self._pool_distribution_provider,
             notifier=DummyNotifier(),
         )
 
@@ -401,6 +448,7 @@ class SchedulerTests(unittest.TestCase):
             dry_run=False,
             http_provider=http_provider,
             browser_provider=None,
+            pool_distribution_provider=self._pool_distribution_provider,
             notifier=DummyNotifier(),
         )
 
@@ -409,3 +457,39 @@ class SchedulerTests(unittest.TestCase):
             summary = json.load(handle)
 
         self.assertTrue(summary["heartbeat"]["missed_schedule_suspected"])
+
+    def test_pool_distribution_change_is_persisted_and_notified(self):
+        def http_provider(url):
+            return SourcePayload(
+                source_kind="http",
+                source_url=url,
+                fetched_at="2026-04-05T00:00:00Z",
+                html=HTML_FIXTURE,
+                rows=None,
+                diagnostics={"status_code": 200},
+            )
+
+        class DummyNotifier(object):
+            def __init__(self):
+                self.messages = []
+
+            def send(self, message):
+                self.messages.append(message)
+                return NotificationResult(True, "dry_run", message, reason="dry_run")
+
+        notifier = DummyNotifier()
+        run_check(
+            state_file=self.state_file,
+            dry_run=False,
+            http_provider=http_provider,
+            browser_provider=None,
+            pool_distribution_provider=self._pool_distribution_provider,
+            notifier=notifier,
+        )
+
+        with open(self.state_file, "r", encoding="utf-8") as handle:
+            payload = json.load(handle)
+
+        self.assertEqual(payload["pool_distribution"]["distribution_date"], "2026-03-29")
+        self.assertIsNotNone(payload["pool_distribution"]["last_notified_key"])
+        self.assertTrue(any("CRS pool distribution updated" in message for message in notifier.messages))

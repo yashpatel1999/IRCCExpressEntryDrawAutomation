@@ -1,26 +1,28 @@
 import os
 from datetime import datetime
 
-from ircc_draw_automation.enricher import build_message
+from ircc_draw_automation.enricher import build_message, build_pool_distribution_message
 from ircc_draw_automation.config import load_dotenv_file
-from ircc_draw_automation.fetcher import DEFAULT_SOURCE_URL, fetch_http_source
+from ircc_draw_automation.fetcher import DEFAULT_POOL_DISTRIBUTION_URL, DEFAULT_SOURCE_URL, fetch_http_source
 from ircc_draw_automation.models import SchedulerRunResult, SourcePayload, utc_now_iso
 from ircc_draw_automation.mcp_browser_source import fetch_browser_source
 from ircc_draw_automation.notifier import NotificationResult, build_default_notifier
 from ircc_draw_automation.observability import get_logger, log_event
-from ircc_draw_automation.parser import parse_latest_draw_from_html, parse_latest_draw_from_rows
+from ircc_draw_automation.parser import parse_latest_draw_from_html, parse_latest_draw_from_rows, parse_pool_distribution_from_html
 from ircc_draw_automation.state_store import JsonStateStore
 from ircc_draw_automation.validator import validate_draw_record
 
 
 def run_check(
     source_url=DEFAULT_SOURCE_URL,
+    pool_distribution_url=DEFAULT_POOL_DISTRIBUTION_URL,
     state_file=None,
     dry_run=False,
     use_browser=False,
     browser_rows_file=None,
     http_provider=None,
     browser_provider=None,
+    pool_distribution_provider=None,
     notifier=None,
     logger=None,
 ):
@@ -28,16 +30,20 @@ def run_check(
     started_at = utc_now_iso()
     http_provider = http_provider or fetch_http_source
     browser_provider = browser_provider or fetch_browser_source
+    pool_distribution_provider = pool_distribution_provider or fetch_http_source
     if notifier is None:
         notifier = build_default_notifier(dry_run=dry_run)
     logger = logger or get_logger()
     state_store = JsonStateStore(state_file)
     current_state = state_store.read_state()
+    pool_state = current_state.get("pool_distribution", {})
     state_snapshot = {
         "last_seen_draw_key": current_state.get("last_seen_draw_key"),
         "last_notified_draw_key": current_state.get("last_notified_draw_key"),
         "last_checked_at": current_state.get("last_checked_at"),
         "last_source_kind": current_state.get("last_source_kind"),
+        "pool_distribution_last_seen_key": pool_state.get("last_seen_key"),
+        "pool_distribution_last_notified_key": pool_state.get("last_notified_key"),
         "notification_count": len(current_state.get("notifications", [])),
     }
     diagnostics = {"state_file": state_store.path}
@@ -115,6 +121,7 @@ def run_check(
                 "content_hash": latest_draw.content_hash,
                 "last_checked_at": utc_now_iso(),
                 "last_source_kind": source_payload.source_kind,
+                "pool_distribution": pool_state,
                 "notifications": current_state.get("notifications", []),
             }
         )
@@ -153,6 +160,7 @@ def run_check(
                     "content_hash": latest_draw.content_hash,
                     "last_checked_at": utc_now_iso(),
                     "last_source_kind": source_payload.source_kind,
+                    "pool_distribution": state_store.read_state().get("pool_distribution", pool_state),
                     "notifications": state_store.read_state().get("notifications", []),
                 }
             )
@@ -178,6 +186,16 @@ def run_check(
         source_kind=source_payload.source_kind,
         change_status=change_status,
         state_snapshot=state_snapshot,
+    )
+
+    pool_distribution_result = _run_pool_distribution_check(
+        pool_distribution_url=pool_distribution_url,
+        pool_distribution_provider=pool_distribution_provider,
+        state_store=state_store,
+        notifier=notifier,
+        logger=logger,
+        dry_run=dry_run,
+        current_state=state_store.read_state(),
     )
 
     completed_at = utc_now_iso()
@@ -208,6 +226,7 @@ def run_check(
         "validation": diagnostics.get("validation"),
         "source_diagnostics": diagnostics.get("source_diagnostics"),
         "heartbeat": heartbeat,
+        "pool_distribution": pool_distribution_result,
     }
     state_store.write_latest_run_summary(summary)
     state_store.append_run_history(summary)
@@ -223,6 +242,106 @@ def run_check(
         notification_result=notification_result,
         diagnostics=diagnostics,
     )
+
+
+def _run_pool_distribution_check(pool_distribution_url, pool_distribution_provider, state_store, notifier, logger, dry_run, current_state):
+    pool_state = current_state.get("pool_distribution", {})
+    result = {
+        "source_url": pool_distribution_url,
+        "checked": False,
+        "changed": False,
+        "notification_sent": False,
+        "reason": None,
+    }
+    try:
+        source_payload = pool_distribution_provider(url=pool_distribution_url)
+        distribution = parse_pool_distribution_from_html(source_payload.html, source_payload.source_url)
+        result.update(
+            {
+                "checked": True,
+                "distribution_key": distribution.distribution_key,
+                "distribution_date": distribution.distribution_date,
+                "total_candidates": distribution.total_candidates,
+                "source_kind": source_payload.source_kind,
+                "changed": distribution.distribution_key != pool_state.get("last_seen_key"),
+            }
+        )
+        log_event(
+            logger,
+            "pool_distribution_checked",
+            distribution_key=distribution.distribution_key,
+            distribution_date=distribution.distribution_date,
+            changed=result["changed"],
+        )
+
+        if not dry_run:
+            updated_state = state_store.read_state()
+            updated_state["pool_distribution"] = {
+                "last_seen_key": distribution.distribution_key,
+                "last_notified_key": pool_state.get("last_notified_key"),
+                "content_hash": distribution.content_hash,
+                "last_checked_at": utc_now_iso(),
+                "distribution_date": distribution.distribution_date,
+            }
+            state_store.write_state(updated_state)
+
+        should_notify = distribution.distribution_key != pool_state.get("last_notified_key")
+        if should_notify and not dry_run:
+            message = build_pool_distribution_message(distribution)
+            try:
+                notification_result = notifier.send(message)
+            except Exception as exc:
+                notification_result = NotificationResult(
+                    False,
+                    getattr(notifier, "__class__", type("Notifier", (), {})).__name__.lower(),
+                    message,
+                    reason="exception:%s" % exc,
+                )
+            result["notification_sent"] = notification_result.sent
+            result["notification_provider"] = notification_result.provider
+            result["notification_reason"] = notification_result.reason
+            log_event(
+                logger,
+                "pool_distribution_notification_sent" if notification_result.sent else "pool_distribution_notification_failed",
+                distribution_key=distribution.distribution_key,
+                notification=notification_result.to_dict(),
+            )
+            if notification_result.sent:
+                updated_state = state_store.read_state()
+                updated_state["pool_distribution"] = {
+                    "last_seen_key": distribution.distribution_key,
+                    "last_notified_key": distribution.distribution_key,
+                    "content_hash": distribution.content_hash,
+                    "last_checked_at": utc_now_iso(),
+                    "distribution_date": distribution.distribution_date,
+                }
+                notifications = updated_state.get("notifications", [])
+                notifications.append(
+                    {
+                        "event_type": "pool_distribution",
+                        "draw_key": distribution.distribution_key,
+                        "sent_at": utc_now_iso(),
+                        "provider": notification_result.provider,
+                        "message_id": notification_result.message_id,
+                        "reason": notification_result.reason,
+                    }
+                )
+                updated_state["notifications"] = notifications
+                state_store.write_state(updated_state)
+        else:
+            result["reason"] = "dry_run" if dry_run else "already_notified"
+            log_event(
+                logger,
+                "pool_distribution_notification_skipped",
+                distribution_key=distribution.distribution_key,
+                reason=result["reason"],
+            )
+    except Exception as exc:
+        result["checked"] = False
+        result["reason"] = str(exc)
+        log_event(logger, "pool_distribution_failed", error=str(exc))
+
+    return result
 
 
 def _build_heartbeat(previous_checked_at, started_at):

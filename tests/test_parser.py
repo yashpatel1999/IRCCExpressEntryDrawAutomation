@@ -2,7 +2,7 @@ import os
 import unittest
 
 from ircc_draw_automation.browser_source import fetch_browser_source
-from ircc_draw_automation.parser import parse_latest_draw_from_html, parse_latest_draw_from_rows
+from ircc_draw_automation.parser import parse_latest_draw_from_html, parse_latest_draw_from_rows, parse_pool_distribution_from_html
 
 
 SAMPLE_HTML = """
@@ -93,6 +93,34 @@ MULTI_ROW_HTML = """
 """
 
 
+POOL_DISTRIBUTION_HTML = """
+<html>
+  <body>
+    <main>
+      <details open>
+        <summary>CRS score distribution of candidates in the pool as of March 29, 2026</summary>
+        <table>
+          <thead>
+            <tr>
+              <th>CRS score range</th>
+              <th>Number of candidates</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td>601-1200</td><td>351</td></tr>
+            <tr><td>501-600</td><td>11,648</td></tr>
+            <tr><td>451-500</td><td>73,445</td></tr>
+            <tr><td>0-300</td><td>8,298</td></tr>
+            <tr><td>Total</td><td>230,186</td></tr>
+          </tbody>
+        </table>
+      </details>
+    </main>
+  </body>
+</html>
+"""
+
+
 FIXTURE_PATH = os.path.join(os.path.dirname(__file__), "fixtures", "browser_rows_fixture.json")
 
 
@@ -146,3 +174,13 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(parsed.program, "Trades Occupations, 2026-Version 3")
         self.assertEqual(parsed.invitations, 3000)
         self.assertEqual(parsed.crs_cutoff, 477)
+
+    def test_parse_pool_distribution_from_html_extracts_date_and_total(self):
+        parsed = parse_pool_distribution_from_html(
+            html=POOL_DISTRIBUTION_HTML,
+            source_url="https://example.com/rounds-invitations.html",
+        )
+
+        self.assertEqual(parsed.distribution_date, "2026-03-29")
+        self.assertEqual(parsed.total_candidates, 230186)
+        self.assertEqual(parsed.rows[0]["range_label"], "601-1200")

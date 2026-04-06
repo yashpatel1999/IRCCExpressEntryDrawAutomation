@@ -3,7 +3,7 @@ import re
 
 from bs4 import BeautifulSoup
 
-from ircc_draw_automation.models import DrawRecord, utc_now_iso
+from ircc_draw_automation.models import DrawRecord, PoolDistributionRecord, utc_now_iso
 
 
 DRAW_NUMBER_PATTERN = re.compile(r"round\s*#?\s*(\d+)|draw\s*#?\s*(\d+)", re.IGNORECASE)
@@ -12,6 +12,10 @@ DATE_PATTERN = re.compile(
     re.IGNORECASE,
 )
 NUMBER_PATTERN = re.compile(r"(\d[\d,]*)")
+POOL_DISTRIBUTION_HEADING_PATTERN = re.compile(
+    r"CRS score distribution of candidates in the pool as of\s*([A-Z][a-z]+ \d{1,2}, \d{4})?",
+    re.IGNORECASE,
+)
 HEADER_KEY_MAP = {
     "#": "draw_number",
     "round": "draw_number",
@@ -64,6 +68,37 @@ def parse_latest_draw_from_rows(rows, source_url):
     return _build_draw_record(latest_candidate, source_url, latest_candidate["hash_basis"])
 
 
+def parse_pool_distribution_from_html(html, source_url):
+    soup = BeautifulSoup(html, "html.parser")
+    distribution_date = _extract_pool_distribution_date(soup.get_text(" ", strip=True))
+    distribution_table = _find_pool_distribution_table(soup)
+    rows = _extract_pool_distribution_rows(distribution_table)
+    if not rows:
+        raise ValueError("Could not parse CRS pool distribution rows.")
+
+    total_candidates = None
+    for row in rows:
+        if row["range_label"].lower() == "total":
+            total_candidates = row["candidate_count"]
+            break
+
+    hash_basis = distribution_date or ""
+    hash_basis += "|" + "|".join(
+        ["%s:%s" % (row["range_label"], row["candidate_count"]) for row in rows]
+    )
+    content_hash = "sha256:" + hashlib.sha256(hash_basis.encode("utf-8")).hexdigest()
+    distribution_key = "%s_%s" % (distribution_date or "unknown-date", content_hash.split(":", 1)[1][:16])
+    return PoolDistributionRecord(
+        distribution_key=distribution_key,
+        distribution_date=distribution_date,
+        total_candidates=total_candidates,
+        rows=rows,
+        source_url=source_url,
+        fetched_at=utc_now_iso(),
+        content_hash=content_hash,
+    )
+
+
 def _extract_rows_from_tables(soup):
     extracted_rows = []
     for table in soup.select("table"):
@@ -80,6 +115,53 @@ def _extract_rows_from_tables(soup):
             if normalized_row:
                 extracted_rows.append(normalized_row)
     return extracted_rows
+
+
+def _find_pool_distribution_table(soup):
+    for table in soup.select("table"):
+        headers = [_normalize_header(header.get_text(" ", strip=True)) for header in table.select("thead th")]
+        if headers == ["crs score range", "number of candidates"]:
+            return table
+
+        first_row_headers = [_normalize_header(cell.get_text(" ", strip=True)) for cell in table.select("tr th")]
+        if "crs score range" in first_row_headers and "number of candidates" in first_row_headers:
+            return table
+
+    raise ValueError("Could not locate the CRS pool distribution table.")
+
+
+def _extract_pool_distribution_rows(table):
+    rows = []
+    body_rows = table.select("tbody tr")
+    if not body_rows:
+        body_rows = table.select("tr")
+
+    for row in body_rows:
+        cells = [cell.get_text(" ", strip=True) for cell in row.find_all(["td", "th"])]
+        if len(cells) < 2:
+            continue
+        if _normalize_header(cells[0]) == "crs score range":
+            continue
+        candidate_count = _parse_int(cells[1])
+        if candidate_count is None:
+            continue
+        rows.append(
+            {
+                "range_label": cells[0],
+                "candidate_count": candidate_count,
+            }
+        )
+    return rows
+
+
+def _extract_pool_distribution_date(text):
+    match = POOL_DISTRIBUTION_HEADING_PATTERN.search(text)
+    if not match:
+        return None
+    raw_date = match.group(1)
+    if not raw_date:
+        return None
+    return _extract_draw_date(raw_date)
 
 
 def _extract_table_headers(table):

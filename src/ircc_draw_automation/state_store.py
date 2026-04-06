@@ -29,6 +29,16 @@ class JsonStateStore:
         state.setdefault("content_hash", None)
         state.setdefault("last_checked_at", None)
         state.setdefault("last_source_kind", None)
+        state.setdefault(
+            "pool_distribution",
+            {
+                "last_seen_key": None,
+                "last_notified_key": None,
+                "content_hash": None,
+                "last_checked_at": None,
+                "distribution_date": None,
+            },
+        )
         state.setdefault("notifications", [])
         return state
 
@@ -67,6 +77,13 @@ def _default_state():
         "content_hash": None,
         "last_checked_at": None,
         "last_source_kind": None,
+        "pool_distribution": {
+            "last_seen_key": None,
+            "last_notified_key": None,
+            "content_hash": None,
+            "last_checked_at": None,
+            "distribution_date": None,
+        },
         "notifications": [],
     }
 

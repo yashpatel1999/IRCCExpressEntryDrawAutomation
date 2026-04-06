@@ -13,6 +13,7 @@ class StateStoreTests(unittest.TestCase):
             state = store.read_state()
 
             self.assertIsNone(state["last_seen_draw_key"])
+            self.assertIn("pool_distribution", state)
             self.assertEqual(state["notifications"], [])
 
     def test_read_state_returns_defaults_when_file_is_empty(self):

@@ -8,6 +8,10 @@ DEFAULT_SOURCE_URL = (
     "mandate/policies-operational-instructions-agreements/ministerial-instructions/"
     "express-entry-rounds.html"
 )
+DEFAULT_POOL_DISTRIBUTION_URL = (
+    "https://www.canada.ca/en/immigration-refugees-citizenship/services/"
+    "immigrate-canada/express-entry/rounds-invitations.html"
+)
 
 DEFAULT_TIMEOUT_SECONDS = 10
 

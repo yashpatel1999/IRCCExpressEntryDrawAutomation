@@ -41,6 +41,37 @@ class DrawRecord:
         }
 
 
+class PoolDistributionRecord:
+    def __init__(
+        self,
+        distribution_key,
+        distribution_date,
+        total_candidates,
+        rows,
+        source_url,
+        fetched_at,
+        content_hash,
+    ):
+        self.distribution_key = distribution_key
+        self.distribution_date = distribution_date
+        self.total_candidates = total_candidates
+        self.rows = rows
+        self.source_url = source_url
+        self.fetched_at = fetched_at
+        self.content_hash = content_hash
+
+    def to_dict(self):
+        return {
+            "distribution_key": self.distribution_key,
+            "distribution_date": self.distribution_date,
+            "total_candidates": self.total_candidates,
+            "rows": self.rows,
+            "source_url": self.source_url,
+            "fetched_at": self.fetched_at,
+            "content_hash": self.content_hash,
+        }
+
+
 def utc_now_iso():
     return datetime.utcnow().replace(microsecond=0).isoformat() + "Z"
 
