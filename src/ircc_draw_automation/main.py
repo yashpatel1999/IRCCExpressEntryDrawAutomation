@@ -1,5 +1,6 @@
 import argparse
 import json
+import sys
 
 from ircc_draw_automation.config import load_dotenv_file
 from ircc_draw_automation.fetcher import DEFAULT_SOURCE_URL
@@ -30,6 +31,7 @@ def main(argv=None):
     parser = build_parser()
     args = parser.parse_args(argv)
     command = args.command or "check_latest_draw"
+    exit_code = 0
 
     try:
         if command == "check_latest_draw":
@@ -54,14 +56,16 @@ def main(argv=None):
         else:
             raise ValueError("Unsupported command: %s" % command)
     except Exception as exc:
-        payload = {
-            "changed": False,
-            "reason": "run_failed",
-            "error": str(exc),
-        }
+            payload = {
+                "changed": False,
+                "reason": "run_failed",
+                "error": str(exc),
+            }
+            exit_code = 1
 
     print(json.dumps(payload, indent=2))
+    return exit_code
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

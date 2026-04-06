@@ -49,9 +49,11 @@ jobs:
       - name: Restore scheduler state if it exists
         run: |
           mkdir -p state
-          if git show scheduler-state:state/ircc_draw_state.json > state/ircc_draw_state.json 2>/dev/null; then
+          if git show scheduler-state:state/ircc_draw_state.json > state/ircc_draw_state.json.tmp 2>/dev/null; then
+            mv state/ircc_draw_state.json.tmp state/ircc_draw_state.json
             echo "Restored state from scheduler-state branch"
           else
+            rm -f state/ircc_draw_state.json.tmp state/ircc_draw_state.json
             echo "No previous scheduler state found"
           fi
 
