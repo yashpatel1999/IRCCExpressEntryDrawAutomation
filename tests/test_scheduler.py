@@ -121,29 +121,6 @@ class SchedulerTests(unittest.TestCase):
         self.assertFalse(result.used_fallback)
         self.assertTrue(result.changed)
 
-    def test_html_file_path_uses_local_fixture_without_http(self):
-        html_file = os.path.join(self.tempdir.name, "fixture.html")
-        with open(html_file, "w", encoding="utf-8") as handle:
-            handle.write(HTML_FIXTURE)
-
-        def http_provider(url):
-            raise AssertionError("http provider should not be called for html_file runs")
-
-        def browser_provider(url, fixture_path=None):
-            raise AssertionError("browser provider should not be called for html_file runs")
-
-        result = run_check(
-            state_file=self.state_file,
-            dry_run=True,
-            http_provider=http_provider,
-            browser_provider=browser_provider,
-            html_file=html_file,
-        )
-
-        self.assertEqual(result.reason, "html_file_success")
-        self.assertEqual(result.source_kind, "html_file")
-        self.assertTrue(result.changed)
-
     def test_http_fetch_failure_triggers_browser_provider(self):
         def http_provider(url):
             raise RuntimeError("network down")

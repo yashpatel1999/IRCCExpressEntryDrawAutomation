@@ -16,7 +16,6 @@ def run_check(
     dry_run=False,
     use_browser=False,
     browser_rows_file=None,
-    html_file=None,
     http_provider=None,
     browser_provider=None,
     notifier=None,
@@ -43,25 +42,6 @@ def run_check(
         used_fallback = False
         diagnostics["validation"] = validation.to_dict()
         log_event(logger, "browser_forced", validation=validation.to_dict(), source_kind=source_payload.source_kind)
-    elif html_file:
-        with open(html_file, "r", encoding="utf-8") as handle:
-            html = handle.read()
-        source_payload = SourcePayload(
-            source_kind="html_file",
-            source_url="file://%s" % html_file.replace("\\", "/"),
-            fetched_at=utc_now_iso(),
-            html=html,
-            rows=None,
-            diagnostics={"html_file": html_file},
-        )
-        latest_draw = parse_latest_draw_from_html(source_payload.html, source_payload.source_url)
-        validation = validate_draw_record(latest_draw)
-        diagnostics["validation"] = validation.to_dict()
-        if not validation.is_valid:
-            raise ValueError("HTML file produced invalid data: %s" % validation.reason)
-        reason = "html_file_success"
-        used_fallback = False
-        log_event(logger, "html_file_parse_valid", validation=validation.to_dict(), source_kind=source_payload.source_kind, html_file=html_file)
     else:
         http_error = None
         fallback_reason = None

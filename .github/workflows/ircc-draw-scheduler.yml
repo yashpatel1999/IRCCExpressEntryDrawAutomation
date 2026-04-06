@@ -4,11 +4,6 @@ on:
   schedule:
     - cron: "*/30 * * * *"
   workflow_dispatch:
-    inputs:
-      html_file:
-        description: "Relative path to a committed HTML fixture"
-        required: false
-        default: "Test.html"
       delay_seconds:
         description: "Delay before running the check"
         required: false
@@ -70,11 +65,7 @@ jobs:
           if [ -n "${{ github.event.inputs.delay_seconds }}" ] && [ "${{ github.event.inputs.delay_seconds }}" != "0" ]; then
             sleep "${{ github.event.inputs.delay_seconds }}"
           fi
-          if [ -n "${{ github.event.inputs.html_file }}" ]; then
-            python -m ircc_draw_automation.main check_latest_draw --html-file "${{ github.event.inputs.html_file }}"
-          else
-            python -m ircc_draw_automation.main check_latest_draw
-          fi
+          python -m ircc_draw_automation.main check_latest_draw
 
       - name: Publish updated state branch
         run: |

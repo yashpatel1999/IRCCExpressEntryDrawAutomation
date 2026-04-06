@@ -308,27 +308,6 @@ For the public ntfy service, set:
 - `NTFY_TOPIC = your-private-topic`
 - `NTFY_TITLE = IRCC Express Entry Draw Alert`
 
-### 30-second fixture test
-
-If you want GitHub Actions to test against an HTML file, the file must be committed to the repository first.
-
-Then run the workflow manually with:
-
-- `html_file = Test.html`
-- `delay_seconds = 30`
-
-Example:
-
-```text
-workflow_dispatch inputs
-html_file: Test.html
-delay_seconds: 30
-```
-
-The workflow will wait 30 seconds by default for manual dispatch, load that committed HTML file, compare it to the saved JSON state, and publish a notification if it detects a new draw. If you want a slower smoke test, set `delay_seconds` to `1800` manually.
-
-For production smoke testing, leave `html_file` at `Test.html` only if you want to validate notification delivery. For the normal live scheduler, do not use the manual fixture input. The scheduled production run still uses the 30-minute cron.
-
 ### If you self-host ntfy later
 
 - Set `NTFY_SERVER_URL` to your server.
