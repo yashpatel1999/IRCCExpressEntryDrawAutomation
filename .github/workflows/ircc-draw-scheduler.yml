@@ -2,7 +2,7 @@ name: IRCC Draw Scheduler
 
 on:
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "*/30 * * * 1-5"
   workflow_dispatch:
     inputs:
       delay_seconds:
@@ -28,29 +28,59 @@ jobs:
         with:
           fetch-depth: 0
 
+      - name: Check Toronto business-hours window
+        id: schedule_window
+        run: |
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "run_reason=manual_dispatch" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          toronto_day=$(TZ=America/Toronto date +%u)
+          toronto_hour=$(TZ=America/Toronto date +%H)
+          toronto_timestamp=$(TZ=America/Toronto date '+%Y-%m-%d %H:%M:%S %Z')
+
+          echo "Toronto time: $toronto_timestamp"
+
+          if [ "$toronto_day" -ge 1 ] && [ "$toronto_day" -le 5 ] && [ "$toronto_hour" -ge 9 ] && [ "$toronto_hour" -lt 18 ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            echo "run_reason=weekday_business_hours" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "run_reason=outside_business_hours" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Set up Python
+        if: steps.schedule_window.outputs.should_run == 'true'
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
       - name: Set up Node
+        if: steps.schedule_window.outputs.should_run == 'true'
         uses: actions/setup-node@v4
         with:
           node-version: "22"
 
       - name: Install Python dependencies
+        if: steps.schedule_window.outputs.should_run == 'true'
         run: pip install -r requirements.txt
 
       - name: Install Node dependencies
+        if: steps.schedule_window.outputs.should_run == 'true'
         run: npm ci
 
       - name: Install Playwright browser
+        if: steps.schedule_window.outputs.should_run == 'true'
         run: npx playwright install --with-deps chromium
 
       - name: Fetch scheduler state branch
+        if: steps.schedule_window.outputs.should_run == 'true'
         run: git fetch origin scheduler-state:scheduler-state || true
 
       - name: Restore scheduler state if it exists
+        if: steps.schedule_window.outputs.should_run == 'true'
         run: |
           mkdir -p state
           if git show scheduler-state:state/ircc_draw_state.json > state/ircc_draw_state.json.tmp 2>/dev/null; then
@@ -62,6 +92,7 @@ jobs:
           fi
 
       - name: Run scheduler
+        if: steps.schedule_window.outputs.should_run == 'true'
         id: run_scheduler
         continue-on-error: true
         env:
@@ -145,6 +176,7 @@ jobs:
           payload = {
               "event": "workflow_run_outcome",
               "run_outcome": os.environ.get("RUN_OUTCOME", "unknown"),
+              "run_reason": "${{ steps.schedule_window.outputs.run_reason }}",
               "commit_sha": os.environ.get("GITHUB_SHA"),
               "workflow_run_id": os.environ.get("GITHUB_RUN_ID"),
               "workflow_run_attempt": os.environ.get("GITHUB_RUN_ATTEMPT"),
@@ -154,7 +186,7 @@ jobs:
           PY
 
       - name: Publish updated state branch
-        if: always()
+        if: always() && steps.schedule_window.outputs.should_run == 'true'
         run: |
           if [ -f state/ircc_draw_state.json ] || [ -f state/ircc_draw.log.jsonl ] || [ -f state/latest_run_summary.json ] || [ -f state/run_history.jsonl ]; then
             git checkout -B scheduler-state
@@ -179,7 +211,7 @@ jobs:
           fi
 
       - name: Upload scheduler logs
-        if: always()
+        if: always() && steps.schedule_window.outputs.should_run == 'true'
         uses: actions/upload-artifact@v4
         with:
           name: ircc-scheduler-state
@@ -190,5 +222,5 @@ jobs:
             state/run_history.jsonl
 
       - name: Fail workflow if scheduler failed
-        if: steps.run_scheduler.outcome == 'failure'
+        if: steps.schedule_window.outputs.should_run == 'true' && steps.run_scheduler.outcome == 'failure'
         run: exit 1
