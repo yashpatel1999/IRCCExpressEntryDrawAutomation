@@ -21,6 +21,7 @@ def run_check(
     dry_run=False,
     use_browser=False,
     browser_rows_file=None,
+    force_notify=False,
     http_provider=None,
     browser_provider=None,
     pool_distribution_provider=None,
@@ -58,6 +59,7 @@ def run_check(
         state_file=state_store.path,
         dry_run=dry_run,
         use_browser=use_browser,
+        force_notify=force_notify,
         state_snapshot=state_snapshot,
         notifier_config=notifier_config,
     )
@@ -134,7 +136,9 @@ def run_check(
         log_event(logger, "state_updated", draw_key=latest_draw.draw_key, source_kind=source_payload.source_kind)
 
     notification_result = None
-    should_notify = validation.is_valid and latest_draw.draw_key != current_state.get("last_notified_draw_key")
+    should_notify = validation.is_valid and (
+        force_notify or latest_draw.draw_key != current_state.get("last_notified_draw_key")
+    )
     if should_notify and not dry_run:
         message = build_message(latest_draw)
         try:
@@ -169,7 +173,7 @@ def run_check(
                     "notifications": state_store.read_state().get("notifications", []),
                 }
             )
-    elif not changed and latest_draw.draw_key == current_state.get("last_notified_draw_key"):
+    elif not force_notify and not changed and latest_draw.draw_key == current_state.get("last_notified_draw_key"):
         log_event(logger, "notification_skipped", reason="draw_unchanged", draw_key=latest_draw.draw_key)
     elif dry_run:
         log_event(logger, "notification_skipped", reason="dry_run", draw_key=latest_draw.draw_key)
@@ -201,6 +205,7 @@ def run_check(
         notifier=notifier,
         logger=logger,
         dry_run=dry_run,
+        force_notify=force_notify,
         current_state=state_store.read_state(),
     )
 
@@ -250,7 +255,7 @@ def run_check(
     )
 
 
-def _run_pool_distribution_check(pool_distribution_url, pool_distribution_provider, pool_distribution_browser_provider, state_store, notifier, logger, dry_run, current_state):
+def _run_pool_distribution_check(pool_distribution_url, pool_distribution_provider, pool_distribution_browser_provider, state_store, notifier, logger, dry_run, force_notify, current_state):
     pool_state = current_state.get("pool_distribution", {})
     result = {
         "source_url": pool_distribution_url,
@@ -304,7 +309,7 @@ def _run_pool_distribution_check(pool_distribution_url, pool_distribution_provid
             }
             state_store.write_state(updated_state)
 
-        should_notify = distribution.distribution_key != pool_state.get("last_notified_key")
+        should_notify = force_notify or distribution.distribution_key != pool_state.get("last_notified_key")
         if should_notify and not dry_run:
             message = build_pool_distribution_message(distribution)
             try:

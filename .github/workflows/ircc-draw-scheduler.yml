@@ -9,6 +9,10 @@ on:
         description: "Delay before running the check"
         required: false
         default: "30"
+      force_notify:
+        description: "Send notifications even if draw/pool state is unchanged (manual testing only)"
+        required: false
+        default: "false"
 
 permissions:
   contents: write
@@ -94,7 +98,11 @@ jobs:
             sleep "${{ github.event.inputs.delay_seconds }}"
           fi
           set +e
-          python -m ircc_draw_automation.main check_latest_draw
+          FORCE_NOTIFY_ARGS=""
+          if [ "${{ github.event.inputs.force_notify }}" = "true" ]; then
+            FORCE_NOTIFY_ARGS="--force-notify"
+          fi
+          python -m ircc_draw_automation.main check_latest_draw $FORCE_NOTIFY_ARGS
           scheduler_exit_code=$?
           set -e
           export SCHEDULER_EXIT_CODE="$scheduler_exit_code"

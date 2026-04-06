@@ -539,3 +539,46 @@ class SchedulerTests(unittest.TestCase):
             payload = json.load(handle)
 
         self.assertEqual(payload["pool_distribution"]["last_seen_key"], "unknown-date_bcb5657297fb5566")
+
+    def test_force_notify_sends_again_when_draw_and_pool_are_unchanged(self):
+        def http_provider(url):
+            return SourcePayload(
+                source_kind="http",
+                source_url=url,
+                fetched_at="2026-04-05T00:00:00Z",
+                html=HTML_FIXTURE,
+                rows=None,
+                diagnostics={"status_code": 200},
+            )
+
+        class DummyNotifier(object):
+            def __init__(self):
+                self.messages = []
+
+            def send(self, message, title=None):
+                self.messages.append((title, message))
+                return NotificationResult(True, "dry_run", message, reason="dry_run")
+
+        notifier = DummyNotifier()
+        run_check(
+            state_file=self.state_file,
+            dry_run=False,
+            http_provider=http_provider,
+            browser_provider=None,
+            pool_distribution_provider=self._pool_distribution_provider,
+            notifier=notifier,
+        )
+
+        run_check(
+            state_file=self.state_file,
+            dry_run=False,
+            force_notify=True,
+            http_provider=http_provider,
+            browser_provider=None,
+            pool_distribution_provider=self._pool_distribution_provider,
+            notifier=notifier,
+        )
+
+        self.assertGreaterEqual(len(notifier.messages), 4)
+        self.assertTrue(any(title == "IRCC Draw Alert" for title, _ in notifier.messages))
+        self.assertTrue(any(title == "IRCC Pool Distribution Alert" for title, _ in notifier.messages))

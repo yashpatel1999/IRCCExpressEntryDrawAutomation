@@ -22,6 +22,7 @@ def build_parser():
     check_parser.add_argument("--browser-rows-file", default=None)
     check_parser.add_argument("--draw-html-file", default=None)
     check_parser.add_argument("--pool-html-file", default=None)
+    check_parser.add_argument("--force-notify", action="store_true")
 
     notify_parser = subparsers.add_parser("send_test_notification")
     notify_parser.add_argument("--message", default="IRCC notifier test message")
@@ -47,6 +48,7 @@ def main(argv=None):
                 dry_run=args.dry_run,
                 use_browser=args.use_browser,
                 browser_rows_file=args.browser_rows_file,
+                force_notify=args.force_notify,
                 http_provider=http_provider,
                 pool_distribution_provider=pool_distribution_provider,
             )
