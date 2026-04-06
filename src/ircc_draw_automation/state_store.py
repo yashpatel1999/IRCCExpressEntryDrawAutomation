@@ -47,6 +47,18 @@ class JsonStateStore:
         state["notifications"] = notifications
         self.write_state(state)
 
+    def write_latest_run_summary(self, summary):
+        path = _summary_path(self.path)
+        _write_json(path, summary)
+
+    def append_run_history(self, summary):
+        path = _history_path(self.path)
+        directory = os.path.dirname(path)
+        if directory and not os.path.exists(directory):
+            os.makedirs(directory)
+        with open(path, "a", encoding="utf-8") as handle:
+            handle.write(json.dumps(summary, sort_keys=True) + "\n")
+
 
 def _default_state():
     return {
@@ -57,3 +69,24 @@ def _default_state():
         "last_source_kind": None,
         "notifications": [],
     }
+
+
+def _summary_path(state_path):
+    return os.environ.get("IRCC_LATEST_RUN_SUMMARY_FILE") or os.path.join(_state_directory(state_path), "latest_run_summary.json")
+
+
+def _history_path(state_path):
+    return os.environ.get("IRCC_RUN_HISTORY_FILE") or os.path.join(_state_directory(state_path), "run_history.jsonl")
+
+
+def _state_directory(state_path):
+    directory = os.path.dirname(state_path)
+    return directory or "."
+
+
+def _write_json(path, payload):
+    directory = os.path.dirname(path)
+    if directory and not os.path.exists(directory):
+        os.makedirs(directory)
+    with open(path, "w", encoding="utf-8") as handle:
+        json.dump(payload, handle, indent=2, sort_keys=True)

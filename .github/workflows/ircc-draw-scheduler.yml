@@ -143,13 +143,19 @@ jobs:
       - name: Publish updated state branch
         if: always()
         run: |
-          if [ -f state/ircc_draw_state.json ] || [ -f state/ircc_draw.log.jsonl ]; then
+          if [ -f state/ircc_draw_state.json ] || [ -f state/ircc_draw.log.jsonl ] || [ -f state/latest_run_summary.json ] || [ -f state/run_history.jsonl ]; then
             git checkout -B scheduler-state
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add -f state/ircc_draw_state.json
             if [ -f state/ircc_draw.log.jsonl ]; then
               git add -f state/ircc_draw.log.jsonl
+            fi
+            if [ -f state/latest_run_summary.json ]; then
+              git add -f state/latest_run_summary.json
+            fi
+            if [ -f state/run_history.jsonl ]; then
+              git add -f state/run_history.jsonl
             fi
             if git diff --cached --quiet; then
               echo "No state changes to publish"
@@ -167,6 +173,8 @@ jobs:
           path: |
             state/ircc_draw_state.json
             state/ircc_draw.log.jsonl
+            state/latest_run_summary.json
+            state/run_history.jsonl
 
       - name: Fail workflow if scheduler failed
         if: steps.run_scheduler.outcome == 'failure'

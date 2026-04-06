@@ -225,6 +225,8 @@ class SchedulerTests(unittest.TestCase):
         self.assertTrue(os.path.exists(self.state_file))
         self.assertFalse(second_result.changed)
         self.assertEqual(second_result.change_status, "draw_already_seen")
+        self.assertTrue(os.path.exists(os.path.join(self.tempdir.name, "latest_run_summary.json")))
+        self.assertTrue(os.path.exists(os.path.join(self.tempdir.name, "run_history.jsonl")))
 
     def test_dry_run_does_not_mutate_state(self):
         def http_provider(url):
@@ -329,3 +331,39 @@ class SchedulerTests(unittest.TestCase):
             second_state = json.load(handle)
 
         self.assertEqual(second_state["last_notified_draw_key"], "2026-04-02_408")
+
+    def test_run_summary_files_are_human_readable_outputs(self):
+        def http_provider(url):
+            return SourcePayload(
+                source_kind="http",
+                source_url=url,
+                fetched_at="2026-04-05T00:00:00Z",
+                html=HTML_FIXTURE,
+                rows=None,
+                diagnostics={"status_code": 200},
+            )
+
+        class DummyNotifier(object):
+            def send(self, message):
+                return NotificationResult(True, "dry_run", message, reason="dry_run")
+
+        result = run_check(
+            state_file=self.state_file,
+            dry_run=False,
+            http_provider=http_provider,
+            browser_provider=None,
+            notifier=DummyNotifier(),
+        )
+
+        summary_path = os.path.join(self.tempdir.name, "latest_run_summary.json")
+        history_path = os.path.join(self.tempdir.name, "run_history.jsonl")
+
+        with open(summary_path, "r", encoding="utf-8") as handle:
+            summary = json.load(handle)
+        with open(history_path, "r", encoding="utf-8") as handle:
+            history_lines = handle.readlines()
+
+        self.assertEqual(summary["draw_key"], result.latest_draw.draw_key)
+        self.assertEqual(summary["source_kind"], "http")
+        self.assertTrue(summary["notification_sent"])
+        self.assertEqual(len(history_lines), 1)

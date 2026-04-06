@@ -22,6 +22,7 @@ def run_check(
     logger=None,
 ):
     load_dotenv_file()
+    started_at = utc_now_iso()
     http_provider = http_provider or fetch_http_source
     browser_provider = browser_provider or fetch_browser_source
     if notifier is None:
@@ -175,6 +176,30 @@ def run_check(
         change_status=change_status,
         state_snapshot=state_snapshot,
     )
+
+    completed_at = utc_now_iso()
+    summary = {
+        "started_at": started_at,
+        "completed_at": completed_at,
+        "reason": reason,
+        "change_status": change_status,
+        "changed": changed,
+        "source_kind": source_payload.source_kind,
+        "used_fallback": used_fallback,
+        "state_updated": state_updated,
+        "draw_key": latest_draw.draw_key,
+        "draw_number": latest_draw.draw_number,
+        "draw_date": latest_draw.draw_date,
+        "program": latest_draw.program,
+        "notification_sent": bool(notification_result and notification_result.sent),
+        "notification_provider": notification_result.provider if notification_result else None,
+        "notification_reason": notification_result.reason if notification_result else None,
+        "state_snapshot_before": state_snapshot,
+        "validation": diagnostics.get("validation"),
+        "source_diagnostics": diagnostics.get("source_diagnostics"),
+    }
+    state_store.write_latest_run_summary(summary)
+    state_store.append_run_history(summary)
 
     return SchedulerRunResult(
         latest_draw=latest_draw,
