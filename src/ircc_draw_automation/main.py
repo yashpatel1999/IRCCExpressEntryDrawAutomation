@@ -56,12 +56,13 @@ def main(argv=None):
         else:
             raise ValueError("Unsupported command: %s" % command)
     except Exception as exc:
-            payload = {
-                "changed": False,
-                "reason": "run_failed",
-                "error": str(exc),
-            }
-            exit_code = 1
+        payload = {
+            "changed": False,
+            "reason": "run_failed",
+            "error_type": type(exc).__name__,
+            "error": str(exc),
+        }
+        exit_code = 1
 
     print(json.dumps(payload, indent=2))
     return exit_code

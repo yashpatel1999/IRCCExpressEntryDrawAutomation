@@ -68,10 +68,50 @@ jobs:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
           NTFY_TITLE: ${{ secrets.NTFY_TITLE }}
         run: |
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          log_file = Path("state/ircc_draw.log.jsonl")
+          log_file.parent.mkdir(parents=True, exist_ok=True)
+          payload = {
+              "event": "workflow_scheduler_step_started",
+              "step": "run_scheduler",
+              "commit_sha": os.environ.get("GITHUB_SHA"),
+              "workflow_run_id": os.environ.get("GITHUB_RUN_ID"),
+              "workflow_run_attempt": os.environ.get("GITHUB_RUN_ATTEMPT"),
+          }
+          with log_file.open("a", encoding="utf-8") as handle:
+              handle.write(json.dumps(payload, sort_keys=True) + "\n")
+          PY
           if [ -n "${{ github.event.inputs.delay_seconds }}" ] && [ "${{ github.event.inputs.delay_seconds }}" != "0" ]; then
             sleep "${{ github.event.inputs.delay_seconds }}"
           fi
+          set +e
           python -m ircc_draw_automation.main check_latest_draw
+          scheduler_exit_code=$?
+          set -e
+          export SCHEDULER_EXIT_CODE="$scheduler_exit_code"
+          python - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          log_file = Path("state/ircc_draw.log.jsonl")
+          log_file.parent.mkdir(parents=True, exist_ok=True)
+          payload = {
+              "event": "workflow_scheduler_step_finished",
+              "step": "run_scheduler",
+              "exit_code": int(os.environ.get("SCHEDULER_EXIT_CODE", "0")),
+              "commit_sha": os.environ.get("GITHUB_SHA"),
+              "workflow_run_id": os.environ.get("GITHUB_RUN_ID"),
+              "workflow_run_attempt": os.environ.get("GITHUB_RUN_ATTEMPT"),
+          }
+          with log_file.open("a", encoding="utf-8") as handle:
+              handle.write(json.dumps(payload, sort_keys=True) + "\n")
+          PY
+          exit $scheduler_exit_code
 
       - name: Record workflow outcome
         if: always()
