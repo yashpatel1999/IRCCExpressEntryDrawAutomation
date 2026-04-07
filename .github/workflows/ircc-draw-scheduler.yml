@@ -2,7 +2,7 @@ name: IRCC Draw Scheduler
 
 on:
   schedule:
-    - cron: "*/30 * * * 1-5"
+    - cron: "0,30 13-21 * * 1-5"
   workflow_dispatch:
     inputs:
       delay_seconds:
