@@ -129,6 +129,19 @@ jobs:
           NTFY_PASSWORD: ${{ secrets.NTFY_PASSWORD }}
           NTFY_TOKEN: ${{ secrets.NTFY_TOKEN }}
         run: |
+          if [ "${{ github.event_name }}" = "schedule" ]; then
+            toronto_day=$(TZ=America/Toronto date +%u)
+            toronto_hour=$(TZ=America/Toronto date +%H)
+            toronto_timestamp=$(TZ=America/Toronto date '+%Y-%m-%d %H:%M:%S %Z')
+
+            echo "Toronto time before scheduler execution: $toronto_timestamp"
+
+            if ! { [ "$toronto_day" -ge 1 ] && [ "$toronto_day" -le 5 ] && [ "$toronto_hour" -ge 9 ] && [ "$toronto_hour" -lt 18 ]; }; then
+              echo "Skipping scheduler because execution reached outside Toronto business hours"
+              exit 0
+            fi
+          fi
+
           python - <<'PY'
           import json
           import os
