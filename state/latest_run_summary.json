@@ -1,0 +1,56 @@
+{
+  "change_status": "draw_already_seen",
+  "changed": false,
+  "commit_sha": "5a72dc7980c16e004a58b4df33b14bd66bf69977",
+  "completed_at": "2026-05-19T21:53:35Z",
+  "draw_date": "2026-05-11",
+  "draw_key": "2026-05-11_415",
+  "draw_number": 415,
+  "heartbeat": {
+    "expected_interval_minutes": 30,
+    "missed_schedule_suspected": true,
+    "observed_gap_minutes": 100.78,
+    "previous_checked_at": "2026-05-19T20:12:19Z"
+  },
+  "notification_provider": null,
+  "notification_reason": null,
+  "notification_sent": false,
+  "pool_distribution": {
+    "changed": false,
+    "checked": true,
+    "distribution_date": null,
+    "distribution_key": "unknown-date_90ea1f8f0711d8b8",
+    "notification_sent": false,
+    "reason": "already_notified",
+    "source_kind": "mcp_browser",
+    "source_url": "https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/express-entry/rounds-invitations.html",
+    "total_candidates": null,
+    "used_fallback": true
+  },
+  "program": "Provincial Nominee Program",
+  "reason": "http_failed_browser_used",
+  "source_diagnostics": {
+    "live_mcp": true,
+    "row_count": 25
+  },
+  "source_kind": "mcp_browser",
+  "started_at": "2026-05-19T21:53:06Z",
+  "state_snapshot_before": {
+    "last_checked_at": "2026-05-19T20:12:19Z",
+    "last_notified_draw_key": "2026-05-11_415",
+    "last_seen_draw_key": "2026-05-11_415",
+    "last_source_kind": "mcp_browser",
+    "notification_count": 20,
+    "pool_distribution_last_notified_key": "unknown-date_90ea1f8f0711d8b8",
+    "pool_distribution_last_seen_key": "unknown-date_90ea1f8f0711d8b8"
+  },
+  "state_updated": true,
+  "used_fallback": true,
+  "validation": {
+    "confidence": 0.8,
+    "is_valid": true,
+    "reason": "valid"
+  },
+  "workflow_run_attempt": "1",
+  "workflow_run_id": "26127554075"
+}
