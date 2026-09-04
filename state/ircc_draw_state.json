@@ -1,0 +1,402 @@
+{
+  "content_hash": "sha256:a0c56329f982f0385ab15bcf9b84c4f5b96be7e197eb42a7d774f7c3a9cc9d1c",
+  "last_checked_at": "2026-09-04T21:37:44Z",
+  "last_notified_draw_key": "2026-09-04_441",
+  "last_seen_draw_key": "2026-09-04_441",
+  "last_source_kind": "mcp_browser",
+  "notifications": [
+    {
+      "draw_key": "2026-04-02_408",
+      "message_id": null,
+      "provider": "dry_run",
+      "reason": "dry_run",
+      "sent_at": "2026-04-06T01:33:24Z"
+    },
+    {
+      "draw_key": "unknown-date_f4dd20ae7689273f",
+      "event_type": "pool_distribution",
+      "message_id": null,
+      "provider": "dry_run",
+      "reason": "dry_run",
+      "sent_at": "2026-04-06T04:03:41Z"
+    },
+    {
+      "draw_key": "2026-04-02_408",
+      "message_id": null,
+      "provider": "dry_run",
+      "reason": "dry_run",
+      "sent_at": "2026-04-06T04:21:02Z"
+    },
+    {
+      "draw_key": "unknown-date_f4dd20ae7689273f",
+      "event_type": "pool_distribution",
+      "message_id": null,
+      "provider": "dry_run",
+      "reason": "dry_run",
+      "sent_at": "2026-04-06T04:21:14Z"
+    },
+    {
+      "draw_key": "2026-04-02_408",
+      "message_id": null,
+      "provider": "dry_run",
+      "reason": "dry_run",
+      "sent_at": "2026-04-06T04:29:46Z"
+    },
+    {
+      "draw_key": "unknown-date_f4dd20ae7689273f",
+      "event_type": "pool_distribution",
+      "message_id": null,
+      "provider": "dry_run",
+      "reason": "dry_run",
+      "sent_at": "2026-04-06T04:30:00Z"
+    },
+    {
+      "draw_key": "2026-04-02_408",
+      "message_id": "1vGVwtsHBDpj",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-04-06T04:36:58Z"
+    },
+    {
+      "draw_key": "unknown-date_f4dd20ae7689273f",
+      "event_type": "pool_distribution",
+      "message_id": "ShMEgfGKN3WR",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-04-06T04:37:13Z"
+    },
+    {
+      "draw_key": "2026-04-02_408",
+      "message_id": "CmacDb6LacmR",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-04-06T04:52:27Z"
+    },
+    {
+      "draw_key": "unknown-date_f4dd20ae7689273f",
+      "event_type": "pool_distribution",
+      "message_id": "rkopPFklqbHq",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-04-06T04:52:39Z"
+    },
+    {
+      "draw_key": "2026-04-13_409",
+      "message_id": "TimoJO6dECjp",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-04-13T18:45:22Z"
+    },
+    {
+      "draw_key": "2026-04-14_410",
+      "message_id": "a7zpnBg5r1lD",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-04-14T17:41:33Z"
+    },
+    {
+      "draw_key": "unknown-date_cbffb1981270fc52",
+      "event_type": "pool_distribution",
+      "message_id": "BRJ3vQ1KIjg1",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-04-14T17:41:49Z"
+    },
+    {
+      "draw_key": "2026-04-15_411",
+      "message_id": "FOgSb2l0qMjC",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-04-15T15:47:47Z"
+    },
+    {
+      "draw_key": "2026-04-27_412",
+      "message_id": "atXHxZPKlYUA",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-04-27T21:33:05Z"
+    },
+    {
+      "draw_key": "unknown-date_2cf9efdbccac2c48",
+      "event_type": "pool_distribution",
+      "message_id": "QpDNKQWHTphv",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-04-27T21:33:18Z"
+    },
+    {
+      "draw_key": "2026-04-28_413",
+      "message_id": "TB6KIZQay4Y0",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-04-28T19:02:35Z"
+    },
+    {
+      "draw_key": "2026-04-29_414",
+      "message_id": "FxLgisH4xXp6",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-04-29T18:14:38Z"
+    },
+    {
+      "draw_key": "2026-05-11_415",
+      "message_id": "c1qrKPLSxt4V",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-05-11T15:54:02Z"
+    },
+    {
+      "draw_key": "unknown-date_90ea1f8f0711d8b8",
+      "event_type": "pool_distribution",
+      "message_id": "PZWdW6LzVMpq",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-05-11T15:54:19Z"
+    },
+    {
+      "draw_key": "2026-05-25_416",
+      "message_id": "nxcbV3Z5z99a",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-05-25T19:04:40Z"
+    },
+    {
+      "draw_key": "2026-05-27_417",
+      "message_id": "8VDFtYTeLYBw",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-05-27T16:33:53Z"
+    },
+    {
+      "draw_key": "unknown-date_bd37b7e66415db25",
+      "event_type": "pool_distribution",
+      "message_id": "JzauwzZ1Z763",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-05-27T16:34:06Z"
+    },
+    {
+      "draw_key": "2026-05-28_418",
+      "message_id": "a55TyWNqJL2z",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-05-28T16:50:12Z"
+    },
+    {
+      "draw_key": "2026-06-22_419",
+      "message_id": "nQOpsAq3u0CC",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-06-22T20:19:38Z"
+    },
+    {
+      "draw_key": "unknown-date_d15bf04b69b67eda",
+      "event_type": "pool_distribution",
+      "message_id": "TlxMsQ2E5yOW",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-06-22T20:19:54Z"
+    },
+    {
+      "draw_key": "2026-06-23_420",
+      "message_id": "1c0SsfXcs4qZ",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-06-23T15:44:50Z"
+    },
+    {
+      "draw_key": "2026-06-24_421",
+      "message_id": "PBP92vOkowyi",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-06-24T17:28:40Z"
+    },
+    {
+      "draw_key": "2026-06-25_422",
+      "message_id": "7jxNgUo6kshx",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-06-25T20:29:14Z"
+    },
+    {
+      "draw_key": "2026-07-06_423",
+      "message_id": "oDRo9mctuxlx",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-07-06T20:21:07Z"
+    },
+    {
+      "draw_key": "unknown-date_0144b6f9fccdfc70",
+      "event_type": "pool_distribution",
+      "message_id": "vWqrClUkKhxI",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-07-06T20:21:21Z"
+    },
+    {
+      "draw_key": "2026-07-07_424",
+      "message_id": "nUK9PecPNETK",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-07-07T17:54:14Z"
+    },
+    {
+      "draw_key": "2026-07-09_425",
+      "message_id": "UIlEkl5qZuN3",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-07-09T15:54:00Z"
+    },
+    {
+      "draw_key": "2026-07-10_426",
+      "message_id": "m1OfzlT6mpw1",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-07-10T15:28:14Z"
+    },
+    {
+      "draw_key": "2026-07-20_427",
+      "message_id": "fiTSnIcQbqoN",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-07-20T15:05:48Z"
+    },
+    {
+      "draw_key": "unknown-date_eec4b42e7594892c",
+      "event_type": "pool_distribution",
+      "message_id": "cTvGapIQbF5I",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-07-20T15:06:04Z"
+    },
+    {
+      "draw_key": "2026-07-21_428",
+      "message_id": "EC4duE5bERz2",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-07-21T14:59:29Z"
+    },
+    {
+      "draw_key": "2026-07-22_429",
+      "message_id": "YRfKXYxS0b5V",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-07-22T17:48:12Z"
+    },
+    {
+      "draw_key": "2026-07-23_430",
+      "message_id": "bBR9pJhZFlKp",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-07-23T16:55:33Z"
+    },
+    {
+      "draw_key": "2026-08-04_431",
+      "message_id": "YXHlnu5ixL4q",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-08-04T15:20:10Z"
+    },
+    {
+      "draw_key": "unknown-date_cd4b578f167120ed",
+      "event_type": "pool_distribution",
+      "message_id": "3FvK3CRTc3K2",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-08-04T15:20:23Z"
+    },
+    {
+      "draw_key": "2026-08-05_432",
+      "message_id": "3F3LwaCng5jx",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-08-05T15:10:08Z"
+    },
+    {
+      "draw_key": "2026-08-06_433",
+      "message_id": "J8FIK7fyTdOH",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-08-07T14:07:47Z"
+    },
+    {
+      "draw_key": "2026-08-07_434",
+      "message_id": "Xgyz2dJ7Ulrm",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-08-07T15:22:38Z"
+    },
+    {
+      "draw_key": "2026-08-17_435",
+      "message_id": "b8SPur3g8YZW",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-08-17T14:52:18Z"
+    },
+    {
+      "draw_key": "unknown-date_3908ec2a0709d644",
+      "event_type": "pool_distribution",
+      "message_id": "xhtIxyo3KgPC",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-08-17T14:52:33Z"
+    },
+    {
+      "draw_key": "2026-08-18_436",
+      "message_id": "9fMCtzWi0buZ",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-08-18T15:38:36Z"
+    },
+    {
+      "draw_key": "2026-08-19_437",
+      "message_id": "S3uclYcsHPBv",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-08-19T17:20:49Z"
+    },
+    {
+      "draw_key": "2026-08-31_438",
+      "message_id": "PuGCG9hpmRD7",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-08-31T19:20:34Z"
+    },
+    {
+      "draw_key": "unknown-date_99f5445b422886f8",
+      "event_type": "pool_distribution",
+      "message_id": "u67O9FGw5Ctq",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-08-31T19:20:51Z"
+    },
+    {
+      "draw_key": "2026-09-01_439",
+      "message_id": "krnF4iZN7Mg5",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-09-01T17:06:03Z"
+    },
+    {
+      "draw_key": "2026-09-03_440",
+      "message_id": "yfyXUQHEmnnl",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-09-03T16:50:01Z"
+    },
+    {
+      "draw_key": "2026-09-04_441",
+      "message_id": "lp4InAF5MQwN",
+      "provider": "ntfy",
+      "reason": "sent",
+      "sent_at": "2026-09-04T16:41:39Z"
+    }
+  ],
+  "pool_distribution": {
+    "content_hash": "sha256:99f5445b422886f82557d7086dd0985583c9c447d0c19e7851456153665777c2",
+    "distribution_date": null,
+    "last_checked_at": "2026-09-04T21:37:57Z",
+    "last_notified_key": "unknown-date_99f5445b422886f8",
+    "last_seen_key": "unknown-date_99f5445b422886f8"
+  }
+}
