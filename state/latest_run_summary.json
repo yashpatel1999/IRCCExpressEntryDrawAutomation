@@ -1,0 +1,56 @@
+{
+  "change_status": "draw_already_seen",
+  "changed": false,
+  "commit_sha": "5a72dc7980c16e004a58b4df33b14bd66bf69977",
+  "completed_at": "2026-10-09T18:37:26Z",
+  "draw_date": "2026-10-01",
+  "draw_key": "2026-10-01_447",
+  "draw_number": 447,
+  "heartbeat": {
+    "expected_interval_minutes": 30,
+    "missed_schedule_suspected": true,
+    "observed_gap_minutes": 1409.78,
+    "previous_checked_at": "2026-10-08T19:07:06Z"
+  },
+  "notification_provider": null,
+  "notification_reason": null,
+  "notification_sent": false,
+  "pool_distribution": {
+    "changed": false,
+    "checked": true,
+    "distribution_date": null,
+    "distribution_key": "unknown-date_7ee2a7b2d958946a",
+    "notification_sent": false,
+    "reason": "already_notified",
+    "source_kind": "mcp_browser",
+    "source_url": "https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/express-entry/rounds-invitations.html",
+    "total_candidates": null,
+    "used_fallback": true
+  },
+  "program": "Trades Occupations, 2026-Version 3",
+  "reason": "http_failed_browser_used",
+  "source_diagnostics": {
+    "live_mcp": true,
+    "row_count": 25
+  },
+  "source_kind": "mcp_browser",
+  "started_at": "2026-10-09T18:36:53Z",
+  "state_snapshot_before": {
+    "last_checked_at": "2026-10-08T19:07:06Z",
+    "last_notified_draw_key": "2026-10-01_447",
+    "last_seen_draw_key": "2026-10-01_447",
+    "last_source_kind": "mcp_browser",
+    "notification_count": 61,
+    "pool_distribution_last_notified_key": "unknown-date_7ee2a7b2d958946a",
+    "pool_distribution_last_seen_key": "unknown-date_7ee2a7b2d958946a"
+  },
+  "state_updated": true,
+  "used_fallback": true,
+  "validation": {
+    "confidence": 0.8,
+    "is_valid": true,
+    "reason": "valid"
+  },
+  "workflow_run_attempt": "1",
+  "workflow_run_id": "37974409185"
+}
