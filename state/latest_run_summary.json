@@ -1,0 +1,56 @@
+{
+  "change_status": "draw_already_seen",
+  "changed": false,
+  "commit_sha": "5a72dc7980c16e004a58b4df33b14bd66bf69977",
+  "completed_at": "2026-10-16T20:00:43Z",
+  "draw_date": "2026-10-16",
+  "draw_key": "2026-10-16_450",
+  "draw_number": 450,
+  "heartbeat": {
+    "expected_interval_minutes": 30,
+    "missed_schedule_suspected": true,
+    "observed_gap_minutes": 171.72,
+    "previous_checked_at": "2026-10-16T17:08:28Z"
+  },
+  "notification_provider": null,
+  "notification_reason": null,
+  "notification_sent": false,
+  "pool_distribution": {
+    "changed": false,
+    "checked": true,
+    "distribution_date": null,
+    "distribution_key": "unknown-date_2397a182ffdbe062",
+    "notification_sent": false,
+    "reason": "already_notified",
+    "source_kind": "mcp_browser",
+    "source_url": "https://www.canada.ca/en/immigration-refugees-citizenship/services/immigrate-canada/express-entry/rounds-invitations.html",
+    "total_candidates": null,
+    "used_fallback": true
+  },
+  "program": "French-Language proficiency 2026-Version 2",
+  "reason": "http_failed_browser_used",
+  "source_diagnostics": {
+    "live_mcp": true,
+    "row_count": 25
+  },
+  "source_kind": "mcp_browser",
+  "started_at": "2026-10-16T20:00:11Z",
+  "state_snapshot_before": {
+    "last_checked_at": "2026-10-16T17:08:28Z",
+    "last_notified_draw_key": "2026-10-16_450",
+    "last_seen_draw_key": "2026-10-16_450",
+    "last_source_kind": "mcp_browser",
+    "notification_count": 65,
+    "pool_distribution_last_notified_key": "unknown-date_2397a182ffdbe062",
+    "pool_distribution_last_seen_key": "unknown-date_2397a182ffdbe062"
+  },
+  "state_updated": true,
+  "used_fallback": true,
+  "validation": {
+    "confidence": 1.0,
+    "is_valid": true,
+    "reason": "valid"
+  },
+  "workflow_run_attempt": "1",
+  "workflow_run_id": "38958970293"
+}
